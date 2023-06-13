@@ -1,0 +1,65 @@
+﻿<ArcGIS defaultAssembly="WaterCorpWeedMonitor.dll" defaultNamespace="WaterCorpWeedMonitor" xmlns="http://schemas.esri.com/DADF/Registry" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
+  <AddInInfo id="{f2dde29b-64be-4123-a940-bbc1b71916e5}" version="1.0" desktopVersion="3.0.36057">
+    <Name>WaterCorpWeedMonitor</Name>
+    <Description>WaterCorpWeedMonitor description</Description>
+    <Image>Images\AddinDesktop32.png</Image>
+    <Author>Lewis</Author>
+    <Company>Acme</Company>
+    <Date>4/17/2023 8:56:09 PM</Date>
+    <Subject>Framework</Subject>
+    <!-- Note subject can be one or more of these topics:
+                    Content, Framework, Editing, Geodatabase, Geometry, Geoprocessing, Layouts, Map Authoring, Map Exploration -->
+  </AddInInfo>
+  <modules>
+    <insertModule id="WaterCorpWeedMonitor_Module" className="Module1" autoLoad="false" caption="WCMonitor">
+      <tabs>
+        <!-- tab -->
+        <tab id="WaterCorpWeedMonitor_Tab1" caption="WCMonitor">
+          <group refID="WaterCorpWeedMonitor_Group1" />
+          <group refID="WaterCorpWeedMonitor_Group2" />
+          <group refID="WaterCorpWeedMonitor_Group3" />
+        </tab>
+      </tabs>
+      <groups>
+        <!-- groups -->
+        <group id="WaterCorpWeedMonitor_Group1" caption="General" appearsOnAddInTab="false">
+          <button refID="WaterCorpWeedMonitor_CreateNewSite" size="large" />
+          <button refID="WaterCorpWeedMonitor_IngestNewCapture" size="large" />
+        </group>
+        <group id="WaterCorpWeedMonitor_Group2" caption="Analysis" appearsOnAddInTab="false">
+          <button refID="WaterCorpWeedMonitor_ClassifyUAVCapture" size="large" />
+          <button refID="WaterCorpWeedMonitor_GenerateFractions" size="large" />
+		  <button refID="WaterCorpWeedMonitor_GenerateTrend" size="large" />
+        </group>
+        <group id="WaterCorpWeedMonitor_Group3" caption="Visualisation" appearsOnAddInTab="false">
+          <button refID="WaterCorpWeedMonitor_DisplayData" size="large" />
+          <button refID="WaterCorpWeedMonitor_GraphFractions" size="large" />
+        </group>
+      </groups>
+      <controls>
+        <!-- controls -->
+        <button id="WaterCorpWeedMonitor_CreateNewSite" caption="Create New Site" className="CreateNewSite" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeodatabaseNew16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeodatabaseNew32.png">
+          <tooltip heading="Create a new monitor site">Create a new monitor site on existing drone image data.<disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_IngestNewCapture" caption="Ingest New UAV Capture" className="IngestNewCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen32.png">
+          <tooltip heading="Ingest a new UAV capture">Ingest data from a new UAV capture and add to an existing monitor site. <disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_ClassifyUAVCapture" caption="Classify UAV Capture" className="ClassifyUAVCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png">
+          <tooltip heading="Classify UAV capture">Classify an existing UAV capture into Native, Weed and Other classes via training areas.<disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractions" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
+          <tooltip heading="Generate Fraction Layers">Generate Native, Weed and Other fraction timeseries layers via classified UAV capture and satellite data.<disabledText /></tooltip>
+        </button>
+		<button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trend" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
+		  <tooltip heading="Generate Trend">Generates polynomial trend through fractional time series layers.<disabledText /></tooltip>
+		</button>
+		<button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">
+		  <tooltip heading="Display Data">Display existing NDVI and fraction layers on active map.<disabledText /></tooltip>
+		</button>
+		<button id="WaterCorpWeedMonitor_GraphFractions" caption="Graph Fractions" className="GraphFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate32.png">
+          <tooltip heading="Graph Fractions">Graph Native, Weed and Other fraction timeseries layers.<disabledText /></tooltip>
+        </button>
+      </controls>
+    </insertModule>
+  </modules>
+</ArcGIS>
