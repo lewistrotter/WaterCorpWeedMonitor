@@ -9,8 +9,12 @@
     <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Toolboxes\toolboxes\geoprocessors\classifyuavcapture.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\createnewsite.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\ingestnewuavcapture.py" />
+    <None Remove="Toolboxes\toolboxes\scripts\glcm.py" />
+    <None Remove="Toolboxes\toolboxes\scripts\shared.py" />
+    <None Remove="Toolboxes\toolboxes\scripts\web.py" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.pyt" />
   </ItemGroup>
   <ItemGroup>
@@ -19,8 +23,12 @@
     <Content Include="Images\AddInDesktop32.png" />
     <Content Include="DarkImages\AddInDesktop16.png" />
     <Content Include="DarkImages\AddInDesktop32.png" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\classifyuavcapture.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\createnewsite.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\ingestnewuavcapture.py" />
+    <Content Include="Toolboxes\toolboxes\scripts\glcm.py" />
+    <Content Include="Toolboxes\toolboxes\scripts\shared.py" />
+    <Content Include="Toolboxes\toolboxes\scripts\web.py" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.pyt" />
   </ItemGroup>
   <ItemGroup>
@@ -97,7 +105,6 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Toolboxes\toolboxes\tests\" />
-    <Folder Include="Toolboxes\toolboxes\scripts\" />
   </ItemGroup>
   <Import Project="C:\Program Files\ArcGIS\Pro\bin\Esri.ProApp.SDK.Desktop.targets" Condition="Exists('C:\Program Files\ArcGIS\Pro\bin\Esri.ProApp.SDK.Desktop.targets') AND !Exists('Esri.ArcGISPro.Extensions.targets')" />
 </Project>

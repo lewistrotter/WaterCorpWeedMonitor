@@ -49,8 +49,13 @@ def execute(
     if arcpy.CheckExtension('Spatial') != 'Available':
         arcpy.AddError('Spatial Analyst license is unavailable.')
         raise  # return
+    # TODO: remove below if wc has no ia
+    elif arcpy.CheckExtension('ImageAnalyst') != 'Available':
+        arcpy.AddError('Image Analyst license is unavailable.')
+        raise  # return
     else:
         arcpy.CheckOutExtension('Spatial')
+        arcpy.CheckOutExtension('ImageAnalyst')  # TODO: remove if wc has no ia
 
     # set data overwrites and mapping
     arcpy.env.overwriteOutput = True
@@ -123,23 +128,30 @@ def execute(
     arcpy.SetProgressor('default', 'Preparing clean band composite...')
 
     try:
-        # composite bands in order of map and output to scratch
-        tmp_comp = 'tmp_comp.crf'  # r'memory\tmp_comp'
-        arcpy.management.CompositeBands(in_rasters=list(band_map.values()),
-                                        out_raster=tmp_comp)
+        # TODO: uncomment below if wc has no ia
+        # # composite bands in order of map and output to scratch
+        # tmp_comp = 'tmp_comp.crf'  # r'memory\tmp_comp'
+        # arcpy.management.CompositeBands(in_rasters=list(band_map.values()),
+        #                                 out_raster=tmp_comp)
+        #
+        # # reproject to wgs84 utm zone 50s to be safe
+        # tmp_prj = 'tmp_prj.crf'  # r'memory\tmp_prj'
+        # arcpy.management.ProjectRaster(in_raster=tmp_comp,
+        #                                out_raster=tmp_prj,
+        #                                out_coor_system=arcpy.SpatialReference(32750))
+        #
+        # # resample (bilinear) new bands to project grid (0.05 is grid cell size)
+        # tmp_rsp = 'tmp_rsp.crf'  # r'memory\tmp_rsp'
+        # arcpy.management.Resample(in_raster=tmp_prj,
+        #                           out_raster=tmp_rsp,
+        #                           cell_size='0.05',
+        #                           resampling_type='BILINEAR')
 
-        # reproject to wgs84 utm zone 50s to be safe
-        tmp_prj = 'tmp_prj.crf'  # r'memory\tmp_prj'
-        arcpy.management.ProjectRaster(in_raster=tmp_comp,
-                                       out_raster=tmp_prj,
-                                       out_coor_system=arcpy.SpatialReference(32750))
-
-        # resample (bilinear) new bands to project grid (0.05 is grid cell size)
-        tmp_rsp = 'tmp_rsp.crf'  # r'memory\tmp_rsp'
-        arcpy.management.Resample(in_raster=tmp_prj,
-                                  out_raster=tmp_rsp,
-                                  cell_size='0.05',
-                                  resampling_type='BILINEAR')
+        # TODO: remove below if wc has no ia
+        # read raster, composite it, reproject to wgs84 utm, resample to standard grid
+        tmp_cmp = arcpy.ia.CompositeBand(list(band_map.values()))
+        tmp_prj = arcpy.ia.Reproject(tmp_cmp, {'wkid': 32750})
+        tmp_rsp = arcpy.ia.Resample(tmp_prj, 'Bilinear', None, 0.05)
 
     except Exception as e:
         arcpy.AddError('Could not prepare bands. See messages.')
@@ -199,7 +211,7 @@ def execute(
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region EXTRACT AND EXPORT CLEAN BANDS
 
-    arcpy.SetProgressor('default', 'Extracting and exporting clean UAV bands...')
+    arcpy.SetProgressor('default', 'Conforming and exporting clean UAV bands...')
 
     # create new bands folder to store clean bands
     bands_folder = os.path.join(capture_folder, 'bands')
@@ -215,17 +227,37 @@ def execute(
         # set uav grid tif path
         grid_tif = os.path.join(grid_folder, 'grid_uav.tif')
 
-        # iter over each band in raster...
-        desc = arcpy.Describe(tmp_rsp)
-        for i, b in enumerate(desc.children):
-            # set current crf band name, output tif band names
-            in_band_path = os.path.join(tmp_rsp, b.name + '.crf')
-            out_band_path = os.path.join(bands_folder, list(band_map.keys())[i] + '.tif')
+        # TODO: uncomment below if wc has no ia
+        # # iter over each band in raster...
+        # desc = arcpy.Describe(tmp_rsp)
+        # for i, b in enumerate(desc.children):
+        #     # set current crf band name, output tif band names
+        #     in_band_path = os.path.join(tmp_rsp, b.name + '.crf')
+        #     out_band_path = os.path.join(bands_folder, list(band_map.keys())[i] + '.tif')
+        #
+        #     # extract clean band from crf to project grid via times, save as tif
+        #     out_raster = arcpy.sa.Times(in_raster_or_constant1=grid_tif,
+        #                                 in_raster_or_constant2=in_band_path)
+        #     out_raster.save(out_band_path)
 
-            # extract clean band from crf to project grid via times, save as tif
-            out_raster = arcpy.sa.Times(in_raster_or_constant1=grid_tif,
-                                        in_raster_or_constant2=in_band_path)
-            out_raster.save(out_band_path)
+        # TODO: remove below wc has no ia
+        # read uav grid in as raster
+        tmp_grd = arcpy.Raster(grid_tif)
+
+        # set up step-wise progressor
+        arcpy.SetProgressor('step', None, 0, len(band_map))
+
+        # iter over each band in raster with name...
+        for name, band in zip(list(band_map.keys()), tmp_rsp.getRasterBands()):
+            # set output band tif path
+            out_band_path = os.path.join(bands_folder, name + '.tif')
+
+            # conform band to grid pixels via multiply and save
+            out_band = band * tmp_grd
+            out_band.save(out_band_path)
+
+            # increment progressor
+            arcpy.SetProgressorPosition()
 
     except Exception as e:
         arcpy.AddError('Could not extract clean bands. See messages.')
@@ -276,17 +308,26 @@ def execute(
     # region END ENVIRONMENT
 
     try:
+        # TODO: uncomment below if wc have ia
         # drop temp files (free up space)
-        arcpy.management.Delete(tmp_comp)
-        arcpy.management.Delete(tmp_prj)
-        arcpy.management.Delete(tmp_rsp)
+        #arcpy.management.Delete(tmp_comp)
+        #arcpy.management.Delete(tmp_prj)
+        #arcpy.management.Delete(tmp_rsp)
+
+        # TODO: remove below if wc has no ia
+        # close temp files
+        del tmp_cmp
+        del tmp_prj
+        del tmp_rsp
+        del tmp_grd
 
     except Exception as e:
         arcpy.AddWarning('Could not drop temporary files. See messages.')
         arcpy.AddMessage(str(e))
 
-    # free up spatial analyst
+    # free up spatial analyst and image analyst
     arcpy.CheckInExtension('Spatial')
+    arcpy.CheckInExtension('ImageAnalyst')  # TODO: remove if wc has no ia
 
     # set changed env variables back to default
     arcpy.env.overwriteOutput = False

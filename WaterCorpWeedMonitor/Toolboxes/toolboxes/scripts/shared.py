@@ -89,6 +89,8 @@ def classify(
     # classify composite via trained model and save
     ras_classified = arcpy.sa.ClassifyRaster(in_raster=in_comp_tif,
                                              in_classifier_definition=ecd)
+
+    # save raster
     ras_classified.save(out_class_tif)
 
     return out_class_tif
@@ -125,7 +127,6 @@ def assess_accuracy(
 
     # TODO: check if any updateaccuracyassessment points are -1 in classified column - they have nans in them
 
-    # # # compute confusion matrix and extract info
     # compute confusion matrix
     #out_cmatrix = os.path.join(out_folder, 'cmatrix.csv')
     arcpy.sa.ComputeConfusionMatrix(in_accuracy_assessment_points=out_acc_pnts,
@@ -150,6 +151,34 @@ def assess_accuracy(
     kappa = kappa.astype(np.float32)
 
     return codes, p_acc, u_acc, oa, kappa
+
+
+def extract_var_importance(in_ecd):
+    """
+    Extracts variable importance info from the ecd file.
+
+    :param in_ecd: Input classifier ecd file.
+    :return: List of variable importance
+    """
+
+    # set var importance output
+    var_imps = []
+
+    try:
+        # read ecd file (its just a json)
+        df = pd.read_json(in_ecd)
+
+        # get list of variable importance
+        var_imps = df['Definitions'][0]['VariableImportance']
+
+        # convert to rounded list 2 decimal places
+        var_imps = [round(v, 2) for v in var_imps]
+
+    except Exception as e:
+        arcpy.AddWarning('Could not extract variable importance.')
+        raise  # return
+
+    return var_imps
 
 
 def get_opcs(n):
