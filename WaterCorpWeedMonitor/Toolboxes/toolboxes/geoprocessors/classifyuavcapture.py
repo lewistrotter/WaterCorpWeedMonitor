@@ -24,7 +24,7 @@ def execute(
 
     # inputs for testing only
     # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach demo\meta.json'
-    # in_flight_datetime = '2023-06-16 10:58:42'  # '2023-06-07 12:34:34' tmp2
+    # in_flight_datetime = '2023-02-08 10:22:09'
     # #in_include_prior = False  # this parameter is only for ui control
     # in_roi_feat = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Classification\Final\train_test_rois_smaller_bc_grp_nvwvo_wgs_z50s.shp'
 
@@ -57,7 +57,7 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region CHECK PROJECT FOLDER STRUCTURE
+    # region CHECK PROJECT FOLDER STRUCTURE AND FILES
 
     arcpy.SetProgressor('default', 'Checking project folders and files...')
 
@@ -619,6 +619,9 @@ def execute(
     # set classified to true (this will update the main dict)
     meta_item['classified'] = True
 
+    # reset fractional data in case this was an overwrite
+    meta_item['fractions'] = []
+
     try:
         # write json metadata file to project folder top-level
         with open(in_project_file, 'w') as fp:
@@ -628,30 +631,6 @@ def execute(
         arcpy.AddError('Could not write metadata. See messages.')
         arcpy.AddMessage(str(e))
         raise  # return
-
-    # endregion
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region ADD NEW CLASSIFIED RASTER TO MAP
-
-    arcpy.SetProgressor('default', 'Adding classified UAV capture to active map...')
-
-    # re-enable add to map
-    arcpy.env.addOutputsToMap = True
-
-    try:
-        # read current project and add tif
-        aprx = arcpy.mp.ArcGISProject('CURRENT')
-        mp = aprx.activeMap
-        mp.addDataFromPath(out_optimal_tif)
-
-    except Exception as e:
-        arcpy.AddWarning('Could not add classified raster to active map. See messages.')
-        arcpy.AddMessage(str(e))
-        pass
-
-    # disable add to map
-    arcpy.env.addOutputsToMap = False
 
     # endregion
 

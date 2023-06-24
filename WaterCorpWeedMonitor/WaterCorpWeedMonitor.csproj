@@ -11,6 +11,10 @@
   <ItemGroup>
     <None Remove="Toolboxes\toolboxes\geoprocessors\classifyuavcapture.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\createnewsite.py" />
+    <None Remove="Toolboxes\toolboxes\geoprocessors\detectchange.py" />
+    <None Remove="Toolboxes\toolboxes\geoprocessors\displaydata.py" />
+    <None Remove="Toolboxes\toolboxes\geoprocessors\generatefractions.py" />
+    <None Remove="Toolboxes\toolboxes\geoprocessors\generatetrend.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\ingestnewuavcapture.py" />
     <None Remove="Toolboxes\toolboxes\scripts\glcm.py" />
     <None Remove="Toolboxes\toolboxes\scripts\shared.py" />
@@ -25,6 +29,10 @@
     <Content Include="DarkImages\AddInDesktop32.png" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\classifyuavcapture.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\createnewsite.py" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\detectchange.py" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\displaydata.py" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\generatefractions.py" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\generatetrend.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\ingestnewuavcapture.py" />
     <Content Include="Toolboxes\toolboxes\scripts\glcm.py" />
     <Content Include="Toolboxes\toolboxes\scripts\shared.py" />

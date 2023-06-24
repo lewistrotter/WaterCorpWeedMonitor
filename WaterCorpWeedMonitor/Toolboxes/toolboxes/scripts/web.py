@@ -10,6 +10,8 @@ import arcpy
 
 from osgeo import gdal
 
+from scripts import shared
+
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # region GDAL SET UP
 
@@ -698,5 +700,122 @@ def downloads_to_folder(data_folder, out_folder):
         shutil.rmtree(data_folder)
     except:
         arcpy.AddMessage('Could not delete NetCDFs data folder.')
+
+
+def get_s2_wc_downloads(
+        grid_tif: str,
+        out_folder: str,
+
+) -> list:
+
+    # set sentinel 2 data date range
+    start_date, end_date = '2017-01-01', '2039-12-31'
+
+    # set dea sentinel 2 collection 3 names
+    collections = [
+        'ga_s2am_ard_3',
+        'ga_s2bm_ard_3'
+    ]
+
+    # reproject grid to wgs84 bounding box
+    tmp_grd = arcpy.Raster(grid_tif)
+    tmp_prj = arcpy.ia.Reproject(tmp_grd, {'wkid': 4326})
+
+    # get bounding box in wgs84 for stac query
+    stac_bbox = shared.get_bbox_from_raster(tmp_prj)
+    if len(stac_bbox) != 4:
+        raise ValueError('Could not generate STAC bounding box.')
+
+    try:
+        # get all stac features from 2017 to now
+        stac_features = fetch_all_stac_features(collections=collections,
+                                                start_date=start_date,
+                                                end_date=end_date,
+                                                bbox=stac_bbox,
+                                                limit=100)
+
+    except Exception as e:
+        arcpy.AddMessage(str(e))
+        raise ValueError('Unable to fetch STAC features. See messages.')
+
+    # check if anything came back, warning if not
+    if len(stac_features) == 0:
+        arcpy.AddWarning('No STAC Sentinel 2 scenes were found.')
+        return []
+
+    # set desired sentinel 2 bands
+    assets = [
+        'nbart_blue',
+        'nbart_green',
+        'nbart_red',
+        'nbart_red_edge_1',
+        'nbart_red_edge_2',
+        'nbart_red_edge_3',
+        'nbart_nir_1',
+        'nbart_nir_2',
+        'nbart_swir_2',
+        'nbart_swir_3'
+    ]
+
+    # reproject grid to albers now
+    tmp_grd = arcpy.Raster(grid_tif)
+    tmp_prj = arcpy.ia.Reproject(tmp_grd, {'wkid': 3577})
+
+    # get bounding box in wgs84 for stac query
+    out_bbox = shared.get_bbox_from_raster(tmp_prj)
+    if len(out_bbox) != 4:
+        raise ValueError('Could not generate output bounding box.')
+
+    # add 30 metres on every side to prevent gaps
+    out_bbox = shared.expand_box_by_metres(bbox=out_bbox, metres=30)
+
+    # set raw output nc folder (one nc per date)
+    raw_ncs_folder = os.path.join(out_folder, 'raw_ncs')
+    if not os.path.exists(raw_ncs_folder):
+        os.mkdir(raw_ncs_folder)
+
+    try:
+        # prepare downloads from raw stac features
+        downloads = convert_stac_features_to_downloads(features=stac_features,
+                                                       assets=assets,
+                                                       out_bbox=out_bbox,
+                                                       out_epsg=3577,
+                                                       out_res=10,
+                                                       out_path=raw_ncs_folder,
+                                                       out_extension='.nc')
+
+    except Exception as e:
+        arcpy.AddMessage(str(e))
+        raise ValueError('Unable to convert STAC features to downloads. See messages.')
+
+    # group downloads captured on same solar day
+    downloads = group_downloads_by_solar_day(downloads=downloads)
+    if len(downloads) == 0:
+        arcpy.AddWarning('No valid downloads were found.')
+        return []
+
+    # remove downloads if current month (we want complete months)
+    downloads = remove_downloads_for_current_month(downloads)
+    if len(downloads) == 0:
+        arcpy.AddWarning('Not enough downloads in current month exist yet.')
+        return []
+
+    # get existing netcdfs and convert to dates
+    exist_dates = []
+    for file in os.listdir(raw_ncs_folder):
+        if file != 'monthly_meds.nc' and file.endswith('.nc'):
+            file = file.replace('R', '').replace('.nc', '')
+            exist_dates.append(file)
+
+    # remove downloads that already exist in sat folder
+    if len(exist_dates) > 0:
+        downloads = remove_existing_downloads(downloads, exist_dates)
+
+        # if nothing left, leave
+        if len(downloads) == 0:
+            arcpy.AddWarning('No new satellite downloads were found.')
+            return []
+
+    return downloads
 
 # endregion

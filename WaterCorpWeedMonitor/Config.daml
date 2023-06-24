@@ -29,7 +29,8 @@
         <group id="WaterCorpWeedMonitor_Group2" caption="Analysis" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_ClassifyUAVCapture" size="large" />
           <button refID="WaterCorpWeedMonitor_GenerateFractions" size="large" />
-		  <button refID="WaterCorpWeedMonitor_GenerateTrend" size="large" />
+		  <button refID="WaterCorpWeedMonitor_DetectChange" size="large" />
+          <button refID="WaterCorpWeedMonitor_GenerateTrend" size="large" />
         </group>
         <group id="WaterCorpWeedMonitor_Group3" caption="Visualisation" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_DisplayData" size="large" />
@@ -44,21 +45,25 @@
         <button id="WaterCorpWeedMonitor_IngestNewCapture" caption="Ingest New UAV Capture" className="IngestNewCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen32.png">
           <tooltip heading="Ingest a new UAV capture">Ingest data from a new UAV capture and add to an existing monitor site. <disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_ClassifyUAVCapture" caption="Classify UAV Capture" className="ClassifyUAVCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png">
-          <tooltip heading="Classify UAV capture">Classify an existing UAV capture into Native, Weed and Other classes via training areas.<disabledText /></tooltip>
+        <button id="WaterCorpWeedMonitor_ClassifyUAVCapture" caption="Classify UAV Captures" className="ClassifyUAVCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png">
+          <tooltip heading="Classify UAV capture">Classify new or existing UAV captures into Native, Weed and Other classes via polygon training areas.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractions" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
+        <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractional Maps" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
           <tooltip heading="Generate Fraction Layers">Generate Native, Weed and Other fraction timeseries layers via classified UAV capture and satellite data.<disabledText /></tooltip>
         </button>
-		<button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trend" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
-		  <tooltip heading="Generate Trend">Generates polynomial trend through fractional time series layers.<disabledText /></tooltip>
-		</button>
+		<button id="WaterCorpWeedMonitor_DetectChange" caption="Detect Change" className="DetectChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EffectsSwipe16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EffectsSwipe32.png">
+		  <tooltip heading="Detect Class Changes">Detect from-to changes for Native, Weed and Other classes between images.<disabledText /></tooltip>
+		  </button>
+		  <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
+          <tooltip heading="Generate Trend">Generates polynomial trend through fractional time series layers.<disabledText /></tooltip>
+        </button>
 		<button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">
-		  <tooltip heading="Display Data">Display existing NDVI and fraction layers on active map.<disabledText /></tooltip>
-		</button>
-		<button id="WaterCorpWeedMonitor_GraphFractions" caption="Graph Fractions" className="GraphFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate32.png">
+          <tooltip heading="Display Data">Display existing NDVI and fraction layers on active map.<disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_GraphFractions" caption="Graph Fractions" className="GraphFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate32.png">
           <tooltip heading="Graph Fractions">Graph Native, Weed and Other fraction timeseries layers.<disabledText /></tooltip>
         </button>
+        
       </controls>
     </insertModule>
   </modules>

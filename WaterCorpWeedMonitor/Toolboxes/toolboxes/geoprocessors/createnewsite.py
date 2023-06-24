@@ -281,7 +281,8 @@ def execute(
         'capture_folder': new_flight_date,
         'capture_date': in_flight_datetime.strftime('%Y-%m-%d %H:%M:%S'),
         'capture_type': 'baseline',
-        'classified': False
+        'classified': False,
+        'fractions': []
     }
 
     # build metadata json file

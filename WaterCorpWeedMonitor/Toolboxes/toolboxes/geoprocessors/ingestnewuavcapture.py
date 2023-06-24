@@ -326,7 +326,8 @@ def execute(
         'capture_folder': new_flight_date,
         'capture_date': in_flight_datetime.strftime('%Y-%m-%d %H:%M:%S'),
         'capture_type': 'revisit',
-        'classified': False
+        'classified': False,
+        'fractions': []
     }
 
     # add to metadata (dict will always put at end)

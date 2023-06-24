@@ -41,17 +41,19 @@ namespace WaterCorpWeedMonitor
                             {
                                 var rasterLyrDef = rasterLayer.GetDefinition();
 
-                                var temporalProfileChart = new CIMChart
+                                if (rasterLyrDef.Name == "s2_fracs.crf")
                                 {
-                                    Name = "Temporal Profile 2",
-
-                                    GeneralProperties = new CIMChartGeneralProperties
+                                    var temporalProfileChart = new CIMChart
                                     {
-                                        Title = "Natives vs Weeds vs Other Fractions"
-                                    },
+                                        Name = "WCMonitor Temporal Profile Fractionals",
 
-                                    Axes = new CIMChartAxis[]
-                                    {
+                                        GeneralProperties = new CIMChartGeneralProperties
+                                        {
+                                            Title = "Natives vs Weeds vs Other Fractions"
+                                        },
+
+                                        Axes = new CIMChartAxis[]
+                                        {
                                         new CIMChartAxis
                                         {
                                             Title = "StdTime"
@@ -60,12 +62,12 @@ namespace WaterCorpWeedMonitor
                                         {
                                             Title = "Values"
                                         }
-                                    },
+                                        },
 
-                                    //MetaData = 
+                                        //MetaData = 
 
-                                    Series = new CIMChartSeries[]
-                                    {
+                                        Series = new CIMChartSeries[]
+                                        {
                                         new CIMChartDimensionalProfileSeries
                                         {
                                             UniqueName = "Series1",
@@ -87,8 +89,8 @@ namespace WaterCorpWeedMonitor
                                                 // Natives line
                                                 new CIMChartDimensionalProfileVariable
                                                 {
-                                                    Name = "nbart_blue",
-                                                    Label = "nbart_blue",
+                                                    Name = "native",
+                                                    Label = "native",
                                                     Symbol = new CIMSymbolReference
                                                     {
                                                         Symbol = new CIMLineSymbol
@@ -108,8 +110,8 @@ namespace WaterCorpWeedMonitor
                                                 // Weeds line
                                                 new CIMChartDimensionalProfileVariable
                                                 {
-                                                    Name = "nbart_green",
-                                                    Label = "nbart_green",
+                                                    Name = "weed",
+                                                    Label = "weed",
                                                     Symbol = new CIMSymbolReference
                                                     {
                                                         Symbol = new CIMLineSymbol
@@ -129,8 +131,8 @@ namespace WaterCorpWeedMonitor
                                                 // Other line
                                                 new CIMChartDimensionalProfileVariable
                                                 {
-                                                    Name = "nbart_red",
-                                                    Label = "nbart_red",
+                                                    Name = "other",
+                                                    Label = "other",
                                                     Symbol = new CIMSymbolReference
                                                     {
                                                         Symbol = new CIMLineSymbol
@@ -148,16 +150,98 @@ namespace WaterCorpWeedMonitor
                                                 },
                                             }
                                         }
-                                    }
-                                };
+                                        }
+                                    };
 
-                                // Add new chart to layer's existing list of charts (if any exist)
-                                var newTemporalChart = new CIMChart[] { temporalProfileChart };
-                                var allTemporalChart = (rasterLyrDef == null) ? newTemporalChart : rasterLyrDef.Charts.Concat(newTemporalChart);
 
-                                // Add CIM chart to layer defintion 
-                                rasterLyrDef.Charts = allTemporalChart.ToArray();
-                                rasterLayer.SetDefinition(rasterLyrDef);
+                                    // Add new chart to layer's existing list of charts (if any exist)
+                                    var newTemporalChart = new CIMChart[] { temporalProfileChart };
+                                    //var allTemporalChart = (rasterLyrDef == null) ? newTemporalChart : rasterLyrDef.Charts.Concat(newTemporalChart);
+
+                                    // Add CIM chart to layer defintion 
+                                    //rasterLyrDef.Charts = allTemporalChart.ToArray();
+                                    rasterLyrDef.Charts = newTemporalChart.ToArray();
+                                    rasterLayer.SetDefinition(rasterLyrDef);
+                                }
+
+                                else if (rasterLyrDef.Name == "s2_ndvi.crf")
+                                {
+                                    var temporalProfileChart = new CIMChart
+                                    {
+                                        Name = "WCMonitor Temporal Profile NDVI",
+
+                                        GeneralProperties = new CIMChartGeneralProperties
+                                        {
+                                            Title = "NDVI"
+                                        },
+
+                                        Axes = new CIMChartAxis[]
+                                        {
+                                        new CIMChartAxis
+                                        {
+                                            Title = "StdTime"
+                                        },
+                                        new CIMChartAxis
+                                        {
+                                            Title = "Values"
+                                        }
+                                        },
+
+                                        //MetaData = 
+
+                                        Series = new CIMChartSeries[]
+                                        {
+                                        new CIMChartDimensionalProfileSeries
+                                        {
+                                            UniqueName = "Series2",
+                                            Name = "temporalProfile",
+                                            MultiSeries = true,
+
+                                            PlotType = ChartDimensionalProfilePlotType.Variables,  // multi vars over time at one location
+
+                                            Fields = new string[] { "StdTime" },
+                                            OrderFields = new string[] { "StdTime" },
+
+                                            TimeAggregationType = ChartTimeAggregationType.EqualIntervalsFromStartTime,
+                                            TimeIntervalUnits = esriTimeUnits.esriTimeUnitsMonths,
+                                            TimeIntervalSize = 1.0,
+                                            TrimIncompleteTimeInterval = true,
+
+                                            Variables = new CIMChartDimensionalProfileVariable[]
+                                            {
+                                                // Natives line
+                                                new CIMChartDimensionalProfileVariable
+                                                {
+                                                    Name = "ndvi",
+                                                    Label = "ndvi",
+                                                    Symbol = new CIMSymbolReference
+                                                    {
+                                                        Symbol = new CIMLineSymbol
+                                                        {
+                                                            SymbolLayers = new CIMSymbolLayer[]
+                                                            {
+                                                                new CIMSolidStroke
+                                                                {
+                                                                    Color = new CIMRGBColor { R=46, G=179, B=64, Alpha=50 },
+                                                                    Width = 2.0
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        }
+                                    };
+
+                                    // Add new chart to layer's existing list of charts (if any exist)
+                                    var newTemporalChart = new CIMChart[] { temporalProfileChart };
+                                    //var allTemporalChart = (rasterLyrDef == null) ? newTemporalChart : rasterLyrDef.Charts.Concat(newTemporalChart);
+
+                                    // Add CIM chart to layer defintion 
+                                    rasterLyrDef.Charts = newTemporalChart.ToArray(); //allTemporalChart.ToArray();
+                                    rasterLayer.SetDefinition(rasterLyrDef);
+                                }
 
                                 var x = 0;
 
