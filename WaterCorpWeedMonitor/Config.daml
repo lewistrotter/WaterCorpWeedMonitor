@@ -3,12 +3,10 @@
     <Name>WaterCorpWeedMonitor</Name>
     <Description>WaterCorpWeedMonitor description</Description>
     <Image>Images\AddinDesktop32.png</Image>
-    <Author>Lewis</Author>
-    <Company>Acme</Company>
+    <Author>Lewis Trotter and Todd Robinson</Author>
+    <Company>Curtin University</Company>
     <Date>4/17/2023 8:56:09 PM</Date>
     <Subject>Framework</Subject>
-    <!-- Note subject can be one or more of these topics:
-                    Content, Framework, Editing, Geodatabase, Geometry, Geoprocessing, Layouts, Map Authoring, Map Exploration -->
   </AddInInfo>
   <modules>
     <insertModule id="WaterCorpWeedMonitor_Module" className="Module1" autoLoad="false" caption="WCMonitor">
@@ -18,6 +16,7 @@
           <group refID="WaterCorpWeedMonitor_Group1" />
           <group refID="WaterCorpWeedMonitor_Group2" />
           <group refID="WaterCorpWeedMonitor_Group3" />
+		  <group refID="WaterCorpWeedMonitor_Group4" />
         </tab>
       </tabs>
       <groups>
@@ -29,13 +28,16 @@
         <group id="WaterCorpWeedMonitor_Group2" caption="Analysis" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_ClassifyUAVCapture" size="large" />
           <button refID="WaterCorpWeedMonitor_GenerateFractions" size="large" />
-		  <button refID="WaterCorpWeedMonitor_DetectChange" size="large" />
+          <button refID="WaterCorpWeedMonitor_DetectChange" size="large" />
           <button refID="WaterCorpWeedMonitor_GenerateTrend" size="large" />
         </group>
         <group id="WaterCorpWeedMonitor_Group3" caption="Visualisation" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_DisplayData" size="large" />
           <button refID="WaterCorpWeedMonitor_GraphFractions" size="large" />
         </group>
+		<group id="WaterCorpWeedMonitor_Group4" caption="Testing" appearsOnAddInTab="false">
+	      <button refID="WaterCorpWeedMonitor_Testing" size="large" />
+		</group>
       </groups>
       <controls>
         <!-- controls -->
@@ -51,19 +53,21 @@
         <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractional Maps" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
           <tooltip heading="Generate Fraction Layers">Generate Native, Weed and Other fraction timeseries layers via classified UAV capture and satellite data.<disabledText /></tooltip>
         </button>
-		<button id="WaterCorpWeedMonitor_DetectChange" caption="Detect Change" className="DetectChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EffectsSwipe16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EffectsSwipe32.png">
-		  <tooltip heading="Detect Class Changes">Detect from-to changes for Native, Weed and Other classes between images.<disabledText /></tooltip>
-		  </button>
-		  <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
+        <button id="WaterCorpWeedMonitor_DetectChange" caption="Detect Change" className="DetectChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EffectsSwipe16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EffectsSwipe32.png">
+          <tooltip heading="Detect Class Changes">Detect from-to changes for Native, Weed and Other classes between images.<disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
           <tooltip heading="Generate Trend">Generates polynomial trend through fractional time series layers.<disabledText /></tooltip>
         </button>
-		<button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">
+        <button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">
           <tooltip heading="Display Data">Display existing NDVI and fraction layers on active map.<disabledText /></tooltip>
         </button>
         <button id="WaterCorpWeedMonitor_GraphFractions" caption="Graph Fractions" className="GraphFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate32.png">
           <tooltip heading="Graph Fractions">Graph Native, Weed and Other fraction timeseries layers.<disabledText /></tooltip>
         </button>
-        
+        <button id="WaterCorpWeedMonitor_Testing" caption="Testing" className="Testing" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeoprocessingEnvironmentSettings16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeoprocessingEnvironmentSettings32.png">
+          <tooltip heading="Testing">Testing<disabledText /></tooltip>
+        </button>
       </controls>
     </insertModule>
   </modules>

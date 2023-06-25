@@ -16,8 +16,10 @@
     <None Remove="Toolboxes\toolboxes\geoprocessors\generatefractions.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\generatetrend.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\ingestnewuavcapture.py" />
+    <None Remove="Toolboxes\toolboxes\geoprocessors\testing.py" />
     <None Remove="Toolboxes\toolboxes\scripts\glcm.py" />
     <None Remove="Toolboxes\toolboxes\scripts\shared.py" />
+    <None Remove="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <None Remove="Toolboxes\toolboxes\scripts\web.py" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.pyt" />
   </ItemGroup>
@@ -34,8 +36,10 @@
     <Content Include="Toolboxes\toolboxes\geoprocessors\generatefractions.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\generatetrend.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\ingestnewuavcapture.py" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\testing.py" />
     <Content Include="Toolboxes\toolboxes\scripts\glcm.py" />
     <Content Include="Toolboxes\toolboxes\scripts\shared.py" />
+    <Content Include="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <Content Include="Toolboxes\toolboxes\scripts\web.py" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.pyt" />
   </ItemGroup>

@@ -243,8 +243,8 @@ def execute(
             da = ds.where(ds['time.month'] == month, drop=True)
 
             # TODO REMOVE THIS
-            da['x'] = da['x'] - 10
-            da['y'] = da['y'] - 10
+            #da['x'] = da['x'] - 10
+            #da['y'] = da['y'] - 10
 
             # check we have 3 full years (last year might not be full)
             slice_num_years = len(np.unique(da['time.year']))
@@ -302,6 +302,13 @@ def execute(
 
             # combine into one
             da = xr.merge([da_inc, da_dec, da_rec, da_tau, da_pvl])
+
+            # upscale TODO: CHECK OK
+            #xs = np.linspace(da['x'].min(), da['x'].max(), len(da['x']) * 3)
+            #ys = np.linspace(da['y'].min(), da['y'].max(), len(da['y']) * 3)
+            #xs = np.arange(da['x'].min(), da['x'].max(), 2)  # 2 metres
+            #ys = np.arange(da['y'].min(), da['y'].max(), 2)  # 2 metres
+            #da = da.interp(x=xs, y=ys)
 
             # append attributes back on
             da.attrs = ds_attrs
@@ -364,6 +371,12 @@ def execute(
             ras_cmb.save(os.path.join(visualise_folder, f'trend_rgb_month_{month}.tif'))
             ras_tau_prj.save(os.path.join(visualise_folder, f'trend_tau_month_{month}.tif'))
             ras_pvl_prj.save(os.path.join(visualise_folder, f'trend_pvl_month_{month}.tif'))
+
+            # TODO
+            #arcpy.management.Resample("trend_rgb_month_3.tif",
+                                      #r"D:\Work\Curtin\Water Corp Project - General\Testing\Demo\ArcGIS Pro\Demo\Demo.gdb\trend_rgb_month_3_Resample",
+                                      #"2 2", "CUBIC")
+
 
     except Exception as e:
         arcpy.AddError('Could not calculate slope and curvature. See messages.')

@@ -1,18 +1,20 @@
 
-import os
-import json
-import datetime
-import pandas as pd
-import numpy as np
-import arcpy
-
-from scripts import shared
-
-
 def execute(
         parameters
-        # messages # TODO: implement
 ):
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region IMPORTS
+
+    import os
+    import json
+    import pandas as pd
+    import numpy as np
+    import arcpy
+
+    from scripts import uav_classify, shared
+
+    # endregion
+
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region EXTRACT PARAMETERS
 
@@ -23,8 +25,8 @@ def execute(
     in_roi_feat = parameters[3].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach demo\meta.json'
-    # in_flight_datetime = '2023-02-08 10:22:09'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
+    # in_flight_datetime = '2023-05-10 16:38:38'
     # #in_include_prior = False  # this parameter is only for ui control
     # in_roi_feat = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Classification\Final\train_test_rois_smaller_bc_grp_nvwvo_wgs_z50s.shp'
 
@@ -38,21 +40,17 @@ def execute(
     # check if user has spatial analyst, error if not
     if arcpy.CheckExtension('Spatial') != 'Available':
         arcpy.AddError('Spatial Analyst license is unavailable.')
-        raise  # return
-    # TODO: remove below if wc has no ia
+        return
     elif arcpy.CheckExtension('ImageAnalyst') != 'Available':
         arcpy.AddError('Image Analyst license is unavailable.')
-        raise  # return
+        return
     else:
         arcpy.CheckOutExtension('Spatial')
-        arcpy.CheckOutExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+        arcpy.CheckOutExtension('ImageAnalyst')
 
     # set data overwrites and mapping
     arcpy.env.overwriteOutput = True
     arcpy.env.addOutputsToMap = False
-
-    # set current workspace to scratch folder
-    arcpy.env.workspace = arcpy.env.scratchFolder
 
     # endregion
 
@@ -64,7 +62,7 @@ def execute(
     # check if input project file exists
     if not os.path.exists(in_project_file):
         arcpy.AddError('Project file does not exist.')
-        raise  # return
+        return
 
     # get top-level project folder from project file
     in_project_folder = os.path.dirname(in_project_file)
@@ -75,7 +73,7 @@ def execute(
         sub_folder = os.path.join(in_project_folder, sub_folder)
         if not os.path.exists(sub_folder):
             arcpy.AddError('Project is missing required folders.')
-            raise  # return
+            return
 
     # endregion
 
@@ -92,12 +90,12 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not read metadata. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
-    # check if any captures exist (will be >= 4)
+    # check if any captures exist (will be >= 4), else error
     if len(meta) < 4:
         arcpy.AddError('Project has no UAV capture data.')
-        raise  # return
+        return
 
     # endregion
 
@@ -119,7 +117,7 @@ def execute(
     # check if meta item exists, else error
     if meta_item is None:
         arcpy.AddError('Could not find selected UAV capture in metadata file.')
-        raise  # return
+        return
 
     # endregion
 
@@ -145,7 +143,7 @@ def execute(
     for v in band_map.values():
         if not os.path.exists(v):
             arcpy.AddError('Some required UAV bands missing from capture folder.')
-            raise  # return
+            return
 
     try:
         # open bands as seperate rasters
@@ -158,7 +156,7 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not read raster bands. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # endregion
 
@@ -198,11 +196,12 @@ def execute(
                 ras = (1 + 0.16) * ((nir - red) / (nir + red + 0.16))
             elif k == 'kndvi':
                 ras = arcpy.sa.TanH(((nir - red) / (nir + red)) ** 2)
-            else:
-                raise ValueError('Requested vegetation index does not exist.')
 
             # save to associated path
             ras.save(v)
+
+            # notify user
+            arcpy.AddMessage(f'Vegetation index {k} done.')
 
             # increment progressor
             arcpy.SetProgressorPosition()
@@ -210,7 +209,7 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not calculate vegetation indices. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # reset progressor
     arcpy.ResetProgressor()
@@ -218,28 +217,32 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region GENERATE GRAYSCALE PCA
+
+    arcpy.SetProgressor('default', 'Generating grayscale image...')
+
+    try:
+        # create band path list
+        band_list = list(band_map.values())
+
+        # generate pca, grayscale and normalise 0-255
+        tmp_gry = uav_classify.make_grayscale(in_band_list=band_list,
+                                              levels=16)
+
+        # TODO: save grayscale for real glcm...
+        #tmp_gry.save('...')
+
+    except Exception as e:
+        arcpy.AddError('Could not calculate grayscale. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region CALCULATE GLCM TEXTURES
 
     arcpy.SetProgressor('default', 'Calculating GLCM textures...')
-
-    # generate pca and return first principal band only
-    tmp_pca = arcpy.sa.PrincipalComponents(in_raster_bands=list(band_map.values()),
-                                           number_components=1)
-
-    # quantise values into 16 grayscale levels and normalise
-    tmp_slc = arcpy.sa.Slice(in_raster=tmp_pca,
-                             number_zones=16,
-                             slice_type='EQUAL_INTERVAL',
-                             base_output_zone=0)
-
-    # rescale quantised values back to 16 classes ranging 0 to 255 (grayscale)
-    tmp_rsc = arcpy.sa.RescaleByFunction(in_raster=tmp_slc,
-                                         transformation_function='LINEAR',
-                                         from_scale=0,
-                                         to_scale=255)
-
-    # save grayscale to scratch - need a physical file
-    #tmp_gry.save('tmp_gry.tif')
 
     # create texture indices map to maintain band order
     tx_map = {
@@ -258,42 +261,41 @@ def execute(
     }
 
     # set up step-wise progressor
-    arcpy.SetProgressor('step', 'Calculating GLCM textures...', 0, len(tx_map))
-
-    # TODO: calculate glcm textures...
-    # for now, fall back on esri tech
+    arcpy.SetProgressor('step', None, 0, len(tx_map))
 
     try:
         # setup neighbourhood object
-        win = arcpy.ia.NbrRectangle(5, 5, 'CELL')
+        win = arcpy.sa.NbrRectangle(5, 5, 'CELL')
 
         # iter each texture and calculate
+        # TODO: calculate real glcm textures...
         for k, v in tx_map.items():
             if k == 'mean':
-                ras = arcpy.ia.FocalStatistics(in_raster=tmp_rsc,
+                ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
                                                neighborhood=win,
                                                statistics_type='MEAN')
             elif k == 'max':
-                ras = arcpy.ia.FocalStatistics(in_raster=tmp_rsc,
+                ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
                                                neighborhood=win,
                                                statistics_type='MAXIMUM')
             elif k == 'min':
-                ras = arcpy.ia.FocalStatistics(in_raster=tmp_rsc,
+                ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
                                                neighborhood=win,
                                                statistics_type='MINIMUM')
             elif k == 'stdev':
-                ras = arcpy.ia.FocalStatistics(in_raster=tmp_rsc,
+                ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
                                                neighborhood=win,
                                                statistics_type='STD')
             elif k == 'range':
-                ras = arcpy.ia.FocalStatistics(in_raster=tmp_rsc,
+                ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
                                                neighborhood=win,
                                                statistics_type='RANGE')
-            else:
-                raise ValueError('Requested texture index does not exist.')
 
             # save to associated path
             ras.save(v)
+
+            # notify user
+            arcpy.AddMessage(f'Texture index {k} done.')
 
             # increment progressor
             arcpy.SetProgressorPosition()
@@ -301,7 +303,7 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not calculate textures indices. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # reset progressor
     arcpy.ResetProgressor()
@@ -326,7 +328,7 @@ def execute(
     for v in [dsm_path, dtm_path]:
         if not os.path.exists(v):
             arcpy.AddError('Digital terrain/surface elevation bands missing from capture folder.')
-            raise  # return
+            return
 
     try:
         # read dsm and dtm rasters
@@ -339,75 +341,30 @@ def execute(
         # save to associated path
         ras.save(os.path.join(bands_folder, chm_map['chm']))
 
+        # notify user
+        arcpy.AddMessage(f'Canopy Height Model done.')
+
     except Exception as e:
         arcpy.AddError('Could not calculate canopy height model. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region READ REGIONS OF INTEREST FEATURE
+    # region VALIDATE REGIONS OF INTEREST FEATURES
 
-    arcpy.SetProgressor('default', 'Reading field training area features...')
+    arcpy.SetProgressor('default', 'Validating field training features...')
 
     try:
-        # get file path, spatial reference and fields
-        fc_desc = arcpy.Describe(in_roi_feat)
-        fc_srs = fc_desc.spatialReference
-        fields = [f.name for f in arcpy.ListFields(in_roi_feat)]
+        # validate features, will throw exception if problem
+        uav_classify.validate_rois(in_roi_feat=in_roi_feat,
+                                   extent=blue.extent)
 
     except Exception as e:
-        arcpy.AddError('Cannot read featureclass. See messages.')
+        arcpy.AddError('Training features are invalid. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
-
-    # endregion
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region CHECK REGIONS OF INTEREST FEATURE
-
-    arcpy.SetProgressor('default', 'Checking field training area features...')
-
-    # check if spatial reference is in wgs84 utm zone 50s)
-    if fc_srs == 'Unknown' or fc_srs.factoryCode != 32750:
-        arcpy.AddError('Training areas must be projected in WGS84 UTM Zone 50S (32750).')
-        raise  # return
-
-    # check if required fields exist
-    req_fields = ['Classname', 'Classvalue']
-    for required_field in req_fields:
-        if required_field not in fields:
-            arcpy.AddError(f'Field {req_fields} missing from training area feature.')
-            raise  # return
-
-    # extract unique class names, values and geometries
-    cnames, cvalues, geoms = [], [], []
-    with arcpy.da.SearchCursor(in_roi_feat, ['Classname', 'Classvalue', 'Shape@']) as cursor:
-        for row in cursor:
-            cnames.append(row[0])
-            cvalues.append(row[1])
-            geoms.append(row[2])
-
-    # get arrays of unique class names, values and counts
-    unq_cn, cnt_cn = np.unique(cnames, return_counts=True)
-    unq_cv, cnt_cv = np.unique(cvalues, return_counts=True)
-
-    # check if not 3 class names/values each with >= 20 geometries, error
-    if len(unq_cn) != 3 or np.any(cnt_cn < 20) or len(unq_cv) != 3 or np.any(cnt_cv < 20):
-        arcpy.AddError('Training area features must have 3 classes (Native, Weed, Other), each with >= 20 polygons.')
-        raise  # return
-
-    # count number of rois within uavc capture extent
-    num_rois_in = 0
-    for geom in geoms:
-        if blue.extent.contains(geom):
-            num_rois_in += 1
-
-    # check if at least 60 rois in uav capturee xtent (20 each), error otherwise
-    if num_rois_in < 60:
-        arcpy.AddError('Not enough training area features within UAV image extent.')
-        raise  # return
+        return
 
     # endregion
 
@@ -426,20 +383,13 @@ def execute(
     var_paths = list(band_map.values()) + list(vi_map.values()) + list(tx_map.values()) + list(chm_map.values())
 
     try:
-        # TODO: uncomment below if wc has no ia
-        #with arcpy.EnvManager(pyramid='NONE'):
-            #tmp_comp = os.path.join(classify_folder, 'comp')  # dont use tif, arcpy bug
-            #arcpy.management.CompositeBands(in_rasters=variables,
-                                            #out_raster=tmp_comp)
-
-        # TODO: remove below if wc has no ia
         # composite all variables
-        tmp_cmp = arcpy.ia.CompositeBand(var_paths)
+        tmp_cmp = arcpy.sa.CompositeBand(var_paths)
 
     except Exception as e:
-        arcpy.AddError('Could not create composite of bands. See messages.')
+        arcpy.AddError('Could not create composite of UAV bands. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # set up step-wise progressor
     arcpy.SetProgressor('step', None, 0, 5)
@@ -451,29 +401,29 @@ def execute(
 
         try:
             # split rois into train / valid splits (50% / 50%)
-            train_shp, valid_shp = shared.split_rois(in_roi_feat=in_roi_feat,
-                                                     out_folder=classify_folder,
-                                                     pct_split=0.5,
-                                                     equal_classes=False)
+            train_shp, valid_shp = uav_classify.split_rois(in_roi_feat=in_roi_feat,
+                                                           out_folder=classify_folder,
+                                                           pct_split=0.5,
+                                                           equal_classes=False)
 
             # classify the uav capture via random forest, save raster and output path
             out_ecd = os.path.join(classify_folder, f'ecd_{i}.ecd')
             out_class_tif = os.path.join(classify_folder, f'rf_{i}.tif')
-            out_class_tif = shared.classify(in_train_roi=train_shp,
-                                            in_comp_tif=tmp_cmp,
-                                            out_ecd=out_ecd,
-                                            out_class_tif=out_class_tif,
-                                            num_trees=250,
-                                            num_depth=50)
+            out_class_tif = uav_classify.classify(in_train_roi=train_shp,
+                                                  in_comp_ras=tmp_cmp,
+                                                  out_ecd=out_ecd,
+                                                  out_class_tif=out_class_tif,
+                                                  num_trees=250,
+                                                  num_depth=100)
+
+            # extract variable importance list
+            var_imps = uav_classify.extract_var_importance(in_ecd=out_ecd)
 
             # validate the classification via confuse matrix
             out_cmatrix = os.path.join(classify_folder, f'cmatrix_{i}.csv')
-            codes, p_acc, u_acc, oa, kappa = shared.assess_accuracy(out_class_tif=out_class_tif,
-                                                                    in_valid_shp=valid_shp,
-                                                                    out_cmatrix=out_cmatrix)
-
-            # extract variable importance list
-            var_imps = shared.extract_var_importance(in_ecd=out_ecd)
+            codes, p_acc, u_acc, oa, kappa = uav_classify.assess_accuracy(out_class_tif=out_class_tif,
+                                                                          in_valid_shp=valid_shp,
+                                                                          out_cmatrix=out_cmatrix)
 
             # show user basic accuracy metrics
             arcpy.AddMessage(f'> Overall Accuracy: {str(np.round(oa, 3))}.')
@@ -499,14 +449,12 @@ def execute(
         except Exception as e:
             arcpy.AddError('Could not classify UAV capture. See messages.')
             arcpy.AddMessage(str(e))
-            raise  # return
+            return
 
     # reset progressor
     arcpy.ResetProgressor()
 
     # endregion
-
-    # display average variable importance
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region SHOW OVERALL VARIABLE IMPORTANCE
@@ -515,7 +463,7 @@ def execute(
 
     try:
         # calculate average importance per var
-        var_imps = np.mean(np.array([e['var_imps'] for e in results]), axis=0)
+        var_imps = np.mean(np.array([v['var_imps'] for v in results]), axis=0)
 
         # store average importance per var
         df_imps = pd.DataFrame({
@@ -531,9 +479,9 @@ def execute(
         df_imps.to_csv(out_imps_csv)
 
     except Exception as e:
-        arcpy.AddWarning('Could not build variable importances. See messages.')
+        arcpy.AddError('Could not get overall variable importance. See messages.')
         arcpy.AddMessage(str(e))
-        pass
+        return
 
     # endregion
 
@@ -569,9 +517,9 @@ def execute(
         arcpy.AddMessage('C_0: Other, C_1: Natives, C_2: Weeds')
 
     except Exception as e:
-        arcpy.AddWarning('Could not extract accuracy metrics. See messages.')
+        arcpy.AddError('Could not extract accuracy metrics. See messages.')
         arcpy.AddMessage(str(e))
-        pass
+        return
 
     # endregion
 
@@ -583,21 +531,37 @@ def execute(
     # check if expected num result items exist, else error
     if len(results) != 5:
         arcpy.AddError('Number of result items is not equal to five.')
-        raise  # return
-
-    # get result item for best model based on kappa
-    best_rf_model = results[np.argmax([_['kappa'] for _ in results])]
-
-    # show user accuracy of best model
-    arcpy.AddMessage(f"Best Model Iteration: {best_rf_model['cv']}.")
-    arcpy.AddMessage(f"Best Overall Accuracy: {str(np.round(best_rf_model['oa'], 3))}.")
-    arcpy.AddMessage(f"Best Kappa: {str(np.round(best_rf_model['kappa'], 3))}.")
+        return
 
     try:
+        # get result item for best model based on kappa
+        best_rf_model = results[np.argmax([_['kappa'] for _ in results])]
+
+        # show user accuracy of best model
+        arcpy.AddMessage(f"Best Model Iteration: {best_rf_model['cv']}.")
+        arcpy.AddMessage(f"Best Overall Accuracy: {str(np.round(best_rf_model['oa'], 3))}.")
+        arcpy.AddMessage(f"Best Kappa: {str(np.round(best_rf_model['kappa'], 3))}.")
+
+    except Exception as e:
+        arcpy.AddError('Could not display overall accuracy metrics. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    try:
+        # read in the optimal classified raster
+        tmp_cls = arcpy.Raster(best_rf_model['out_class_tif'])
+
+        # apply a 5x5 majority focal window filter to remove noise
+        win = arcpy.sa.NbrRectangle(5, 5, 'CELL')
+        tmp_maj = arcpy.sa.FocalStatistics(tmp_cls, win, 'MAJORITY')
+
         # make a copy of optimal model raster
         out_optimal_tif = os.path.join(classify_folder, 'rf_optimal.tif')
-        arcpy.management.CopyRaster(in_raster=best_rf_model['out_class_tif'],
+        arcpy.management.CopyRaster(in_raster=tmp_maj,
                                     out_rasterdataset=out_optimal_tif)
+
+        # rebuild attribute table class information after stripping above
+        uav_classify.rebuild_raster_class_attributes(in_ras=out_optimal_tif)
 
         # do the same for confusion matrix
         out_optimal_cmatrix = os.path.join(classify_folder, 'cmatrix_optimal.csv')
@@ -605,9 +569,9 @@ def execute(
                               out_data=out_optimal_cmatrix)
 
     except Exception as e:
-        arcpy.AddError('Could not copy optimal classified raster/matrix. See messages.')
+        arcpy.AddError('Could not save optimal classified raster/matrix. See messages.')
         arcpy.AddMessage(str(e))
-        raise
+        return
 
     # endregion
 
@@ -619,7 +583,7 @@ def execute(
     # set classified to true (this will update the main dict)
     meta_item['classified'] = True
 
-    # reset fractional data in case this was an overwrite
+    # reset fractional data as incase this was a reclssification
     meta_item['fractions'] = []
 
     try:
@@ -630,7 +594,35 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not write metadata. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region ADD CLASSIFIED RASTER TO ACTIVE MAP
+
+    # build visualise folder path and
+    visualise_folder = os.path.join(in_project_folder, 'visualise')
+
+    try:
+        # create uav classified raster for visualise folder
+        tmp_cls = arcpy.Raster(out_optimal_tif)
+
+        # get flight date code
+        flight_date = meta_item['capture_folder']
+
+        # save uav rgb raster to visualise folder
+        out_tif = os.path.join(visualise_folder, 'uav_classified' + '_' + flight_date + '.tif')
+        tmp_cls.save(out_tif)
+
+        # visualise it on active map and symbolise it to class colors
+        shared.add_raster_to_map(in_ras=out_tif)
+        shared.apply_classified_symbology(in_ras=out_tif)
+
+    except Exception as e:
+        arcpy.AddWarning('Could not visualise classified image. See messages.')
+        arcpy.AddMessage(str(e))
+        pass
 
     # endregion
 
@@ -638,17 +630,19 @@ def execute(
     # region END ENVIRONMENT
 
     try:
-        # TODO: remove below if wc has no ia
-        # close temp files
-        del tmp_pca
-        del tmp_slc
-        del tmp_rsc
-        #del tmp_gry  # TODO: remove if not doing glcm
+        del blue
+        del green
+        del red
+        del redge
+        del nir
+        del ras
+        del dsm
+        del dtm
+        #del tmp_gry  # TODO: uncomment when glcm implemented
         del tmp_cmp
+        del tmp_cls
 
-        # TODO: uncomment below if wc has no ia
         # drop temp files (free up space)
-        # arcpy.management.Delete(tmp_comp)
         arcpy.management.Delete(train_shp)
         arcpy.management.Delete(valid_shp)
 
@@ -665,7 +659,7 @@ def execute(
 
     # free up spatial analyst
     arcpy.CheckInExtension('Spatial')
-    arcpy.CheckInExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+    arcpy.CheckInExtension('ImageAnalyst')
 
     # set changed env variables back to default
     arcpy.env.overwriteOutput = False

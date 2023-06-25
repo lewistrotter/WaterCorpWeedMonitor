@@ -1,16 +1,18 @@
 
-import os
-import json
-import datetime
-import arcpy
-
-# from scripts import ...
-
-
 def execute(
         parameters
-        # messages # TODO: implement
 ):
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region IMPORTS
+
+    import os
+    import json
+    import arcpy
+
+    from scripts import shared
+
+    # endregion
+
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region EXTRACT PARAMETERS
 
@@ -26,7 +28,7 @@ def execute(
     in_dtm_band = parameters[8].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\tmp2\meta.json'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
     # in_flight_datetime = datetime.datetime.now()
     # in_blue_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_blue.tif'
     # in_green_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_green.tif'
@@ -43,24 +45,20 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing environment...')
 
-    # check if user has spatial analyst, error if not
+    # check if user has spatial/image analyst, error if not
     if arcpy.CheckExtension('Spatial') != 'Available':
         arcpy.AddError('Spatial Analyst license is unavailable.')
-        raise  # return
-    # TODO: remove below if wc has no ia
+        return
     elif arcpy.CheckExtension('ImageAnalyst') != 'Available':
         arcpy.AddError('Image Analyst license is unavailable.')
-        raise  # return
+        return
     else:
         arcpy.CheckOutExtension('Spatial')
-        arcpy.CheckOutExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+        arcpy.CheckOutExtension('ImageAnalyst')
 
     # set data overwrites and mapping
     arcpy.env.overwriteOutput = True
     arcpy.env.addOutputsToMap = False
-
-    # set current workspace to scratch folder
-    arcpy.env.workspace = arcpy.env.scratchFolder
 
     # endregion
 
@@ -72,7 +70,7 @@ def execute(
     # check if input project file exists
     if not os.path.exists(in_project_file):
         arcpy.AddError('Project file does not exist.')
-        raise  # return
+        return
 
     # get top-level project folder from project file
     in_project_folder = os.path.dirname(in_project_file)
@@ -83,13 +81,13 @@ def execute(
         sub_folder = os.path.join(in_project_folder, sub_folder)
         if not os.path.exists(sub_folder):
             arcpy.AddError('Project is missing required folders.')
-            raise  # return
+            return
 
     # check if uav grid file exists
     grid_tif = os.path.join(in_project_folder, 'grid', 'grid_uav.tif')
     if not os.path.exists(grid_tif):
         arcpy.AddError('Project grid file does not exist.')
-        raise  # return
+        return
 
     # endregion
 
@@ -106,12 +104,12 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not read metadata. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
-    # check if any captures exist (will be >= 4)
+    # check if any captures exist (will be >= 4), else error
     if len(meta) < 4:
         arcpy.AddError('Project has no UAV capture data.')
-        raise  # return
+        return
 
     # endregion
 
@@ -139,7 +137,7 @@ def execute(
     except Exception as e:
         arcpy.AddError('Not all input bands are valid. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # endregion
 
@@ -149,35 +147,15 @@ def execute(
     arcpy.SetProgressor('default', 'Preparing clean band composite...')
 
     try:
-        # TODO: uncomment below if wc has no ia
-        # # composite bands in order of map and output to scratch
-        # tmp_comp = 'tmp_comp.crf'  # r'memory\tmp_comp'
-        # arcpy.management.CompositeBands(in_rasters=list(new_band_map.values()),
-        #                                 out_raster=tmp_comp)
-        #
-        # # reproject to wgs84 utm zone 50s to be safe
-        # tmp_prj = 'tmp_prj.crf'  # r'memory\tmp_prj'
-        # arcpy.management.ProjectRaster(in_raster=tmp_comp,
-        #                                out_raster=tmp_prj,
-        #                                out_coor_system=arcpy.SpatialReference(32750))
-        #
-        # # resample (bilinear) new bands to project grid (0.05 is grid cell size)
-        # tmp_rsp = 'tmp_rsp.crf'  # r'memory\tmp_rsp'
-        # arcpy.management.Resample(in_raster=tmp_prj,
-        #                           out_raster=tmp_rsp,
-        #                           cell_size='0.05',
-        #                           resampling_type='BILINEAR')
-
-        # TODO: remove below if wc has no ia
-        # read raster, composite it, reproject to wgs84 utm, resample to standard grid
-        tmp_cmp = arcpy.ia.CompositeBand(list(new_band_map.values()))
+        # read raster, composite, reproject (wgs84 utm zone 50s), resample to standard grid
+        tmp_cmp = arcpy.sa.CompositeBand(list(new_band_map.values()))
         tmp_prj = arcpy.ia.Reproject(tmp_cmp, {'wkid': 32750})
-        tmp_rsp = arcpy.ia.Resample(tmp_prj, 'Bilinear', None, 0.05)
+        tmp_rsp = arcpy.sa.Resample(tmp_prj, 'Bilinear', None, 0.05)
 
     except Exception as e:
         arcpy.AddError('Could not prepare bands. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # endregion
 
@@ -199,7 +177,7 @@ def execute(
     # check if baseline folder has bands sub-folder
     if not os.path.exists(base_capture_bands):
         arcpy.AddError('Baseline capture band folder missing.')
-        raise  # return
+        return
 
     # build baseline band map
     base_bands = []
@@ -211,35 +189,23 @@ def execute(
         # check if band exists, else error
         if not os.path.exists(base_band_file):
             arcpy.AddError('Not all input baseline bands exist.')
-            raise  # return
+            return
 
     try:
-        # TODO: uncomment below if wc has no ia
-        # # composite baseline bands in order of map and output to scratch
-        # tmp_base_comp = 'tmp_base_comp.crf'  # r'memory\tmp_base_comp'
-        # arcpy.management.CompositeBands(in_rasters=base_bands,
-        #                                 out_raster=tmp_base_comp)
-
-        # # register (shift) new resampled capture composite to baseline composite
-        # arcpy.management.RegisterRaster(in_raster=tmp_rsp,
-        #                                 register_mode='REGISTER',
-        #                                 reference_raster=tmp_base_comp,
-        #                                 transformation_type='POLYORDER0')
-
-        # TODO: remove below if wc has no ia
         # create composite of baseline bands in order of map
-        tmp_base_cmp = arcpy.ia.CompositeBand(base_bands)
+        tmp_base_cmp = arcpy.sa.CompositeBand(base_bands)
 
         # register new raster to baseline raster, should update in memory
         arcpy.management.RegisterRaster(in_raster=tmp_rsp,
                                         register_mode='REGISTER',
                                         reference_raster=tmp_base_cmp,
                                         transformation_type='POLYORDER0')
+        # TODO: if time available, see if can improve - same image comes in slightly shifted
 
     except Exception as e:
         arcpy.AddError('Could not register new capture data to baseline. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # endregion
 
@@ -255,7 +221,7 @@ def execute(
     # check if flight capture already exists, error if so
     if os.path.exists(new_capture_folder):
         arcpy.AddError('Current UAV capture already exists.')
-        raise  # return
+        return
     else:
         os.mkdir(new_capture_folder)
 
@@ -272,25 +238,11 @@ def execute(
     # check if bands folder already exists, error if so
     if os.path.exists(bands_folder):
         arcpy.AddError('UAV capture bands folder already exists.')
-        raise  # return
+        return
     else:
         os.mkdir(bands_folder)
 
     try:
-        # TODO: uncomment below if wc has no ia
-        # # iter over each band in raster...
-        # desc = arcpy.Describe(tmp_rsp)
-        # for i, b in enumerate(desc.children):
-        #     # set current crf band name, output tif band names
-        #     in_band_path = os.path.join(tmp_rsp, b.name + '.crf')
-        #     out_band_path = os.path.join(bands_folder, list(new_band_map.keys())[i] + '.tif')
-        #
-        #     # extract clean band pixels to project grid via times
-        #     out_raster = arcpy.sa.Times(in_raster_or_constant1=grid_tif,
-        #                                 in_raster_or_constant2=in_band_path)
-        #     out_raster.save(out_band_path)
-
-        # TODO: remove below wc has no ia
         # read uav grid in as raster
         tmp_grd = arcpy.Raster(grid_tif)
 
@@ -312,7 +264,7 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not extract clean bands. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
     # endregion
 
@@ -341,7 +293,36 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not write metadata. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region ADD RGB COMPOSITE TO ACTIVE MAP
+
+    # build visualise folder path and
+    visualise_folder = os.path.join(in_project_folder, 'visualise')
+
+    # prepare rgb band paths
+    r_tif = os.path.join(bands_folder, 'red.tif')
+    g_tif = os.path.join(bands_folder, 'green.tif')
+    b_tif = os.path.join(bands_folder, 'blue.tif')
+
+    try:
+        # create uav raster rgb compoisite for visualise
+        tmp_rgb = arcpy.sa.CompositeBand([r_tif, g_tif, b_tif])
+
+        # save uav rgb raster to visualise folder
+        out_tif = os.path.join(visualise_folder, 'uav_rgb' + '_' + new_flight_date + '.tif')
+        tmp_rgb.save(out_tif)
+
+        # visualise it on active map
+        shared.add_raster_to_map(in_ras=out_tif)
+
+    except Exception as e:
+        arcpy.AddWarning('Could not visualise UAV RGB composite. See messages.')
+        arcpy.AddMessage(str(e))
+        pass
 
     # endregion
 
@@ -349,27 +330,21 @@ def execute(
     # region END ENVIRONMENT
 
     try:
-        # TODO: uncomment below if wc have ia
-        # drop temp files (free up space)
-        #arcpy.management.Delete(tmp_comp)
-        #arcpy.management.Delete(tmp_prj)
-        #arcpy.management.Delete(tmp_rsp)
-        #arcpy.management.Delete(tmp_base_comp)
-
-        # TODO: remove below if wc has no ia
         # close temp files
         del tmp_cmp
         del tmp_prj
         del tmp_rsp
         del tmp_base_cmp
+        del tmp_rgb
 
     except Exception as e:
         arcpy.AddWarning('Could not drop temporary files. See messages.')
         arcpy.AddMessage(str(e))
+        pass
 
     # free up spatial analyst
     arcpy.CheckInExtension('Spatial')
-    arcpy.CheckInExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+    arcpy.CheckInExtension('ImageAnalyst')
 
     # set changed env variables back to default
     arcpy.env.overwriteOutput = False
