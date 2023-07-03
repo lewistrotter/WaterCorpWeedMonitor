@@ -89,23 +89,76 @@ def apply_classified_symbology(
     return
 
 
+def convert_xr_vars_to_raster(
+        da: xr.Dataset,
+) -> list:
+    """
+    Takes a 2D xarray Dataset object and returns a single GeoTiff
+    where each band represents a variable in the input NetCDF. Working
+    is done in termporary scratch folder
 
-
-
-
-
-def get_bbox_from_raster(
-        in_raster: arcpy.Raster
-) -> tuple:
+    :param da: xarray Dataset.
+    :return: arcpy.Raster composite.
     """
 
-    :param in_raster:
-    :return:
+    # get scratch folder
+    scratch_folder = arcpy.env.scratchFolder
+
+    # init out band list
+    out_band_tifs = []
+
+    try:
+        # convert each dataset var to a real tif band
+        for var in list(da.data_vars):
+            # set up output nc and tif files in scratch
+            out_nc = os.path.join(scratch_folder, f'{var}.nc')
+            out_tif = os.path.join(scratch_folder, f'{var}.tif')
+
+            # export current var as netcdf
+            da[var].to_netcdf(out_nc)
+
+            # convert netcdf to raster
+            dataset = gdal.Open(out_nc, gdal.GA_ReadOnly)
+            dataset = gdal.Translate(out_tif, dataset)
+            dataset = None
+
+            # append tif to bands list
+            out_band_tifs.append(out_tif)
+
+        # composite
+        out_ras = arcpy.sa.CompositeBand(out_band_tifs)
+
+    except Exception as e:
+        raise e
+
+    return out_ras
+
+
+def get_raster_bbox(
+        in_ras: arcpy.Raster,
+        out_epsg: int = None
+) -> tuple:
+    """
+    Takes an ArcPy Raster object and extracts
+    coordinate bbox from it. Coordinates in bbox
+    are in order x_min, y_min, x_max, y_max.
+    Optionally can reproject bbox to new coordinates.
+
+    :param in_ras: ArcPy Raster object.
+    :param out_epsg: EPSG to reproject bbox to.
+    :return: Bbox tuple.
     """
 
     try:
+        # create copy raster
+        tmp_ras = in_ras
+
+        # reproject if requested
+        if out_epsg is not None:
+            tmp_ras = arcpy.ia.Reproject(tmp_ras, {'wkid': out_epsg})
+
         # get description object from input raster
-        extent = arcpy.Describe(in_raster).extent
+        extent = arcpy.Describe(tmp_ras).extent
 
         # extract sw, ne corners
         x_min, y_min = float(extent.XMin), float(extent.YMin)
@@ -120,26 +173,28 @@ def get_bbox_from_raster(
     return bbox
 
 
-def expand_box_by_metres(
+def expand_bbox(
         bbox: tuple,
-        metres: float
+        by_metres: float
 ) -> tuple:
     """
+    Expands bbox extent by given value. Expected
+    that input is in metres.
 
-    :param bbox:
-    :return:
+    :param bbox: Bbox tuple.
+    :return: Expanded bbox in same units.
     """
 
     # unpack bbox
     x_min, y_min, x_max, y_max = bbox
 
     # minus 30 x and y min
-    x_min -= metres
-    y_min -= metres
+    x_min -= by_metres
+    y_min -= by_metres
 
     # plus x max and y max
-    x_max += metres
-    y_max += metres
+    x_max += by_metres
+    y_max += by_metres
 
     return x_min, y_min, x_max, y_max
 
@@ -151,6 +206,61 @@ def expand_box_by_metres(
 
 
 
+def fix_xr_attrs(
+        ds: xr.Dataset,
+        out_vars: list,
+        out_datetime: str,
+        out_epsg: int
+) -> xr.Dataset:
+    """
+    Fix xarray dataset metadata
+
+    :param ds: Xarray Dataset.
+    :return: Xarray Dataset.
+    """
+
+    for band in ds:
+        if len(ds[band].shape) == 0:
+            crs_name = band
+            crs_wkt = str(ds[band].attrs.get('spatial_ref'))
+            ds = ds.drop_vars(crs_name)
+            break
+
+    ds = ds.assign_coords({'spatial_ref': out_epsg})
+    ds['spatial_ref'].attrs = {
+        'spatial_ref': crs_wkt,
+        'grid_mapping_name': crs_name
+    }
+
+    if 'time' not in ds:
+        dt = pd.to_datetime(out_datetime, format='%Y-%m-%d')
+        ds = ds.assign_coords({'time': dt.to_numpy()})
+        ds = ds.expand_dims('time')
+
+    for dim in ds.dims:
+        if dim in ['x', 'y', 'lat', 'lon']:
+            ds[dim].attrs = {
+                # 'units': 'metre'  # TODO: how to get units?
+                'resolution': np.mean(np.diff(ds[dim])),
+                'crs': f'EPSG:{out_epsg}'
+            }
+
+    for i, band in enumerate(ds):
+        ds[band].attrs = {
+            'units': '1',
+            # 'nodata': self.nodata,  TODO: implemented out_nodata
+            'crs': f'EPSG:{out_epsg}',
+            'grid_mapping': 'spatial_ref',
+        }
+
+        ds = ds.rename({band: out_vars[i]})
+
+    ds.attrs = {
+        'crs': f'EPSG:{out_epsg}',
+        'grid_mapping': 'spatial_ref'
+    }
+
+    return ds
 
 
 
@@ -159,147 +269,20 @@ def expand_box_by_metres(
 
 
 
-def export_xr_vars_into_tifs(
-        da: xr.Dataset,
-        out_folder: str
-) -> list:
-
-    # init out band list
-    out_band_tifs = []
-
-    # convert each dataset var to a real tif band
-    for var in list(da.data_vars):
-        # set up output nc and tif files in scratch
-        out_nc = os.path.join(out_folder, f'{var}.nc')
-        out_tif = os.path.join(out_folder, f'{var}.tif')
-
-        # export current var as netcdf
-        da[var].to_netcdf(out_nc)
-
-        # convert netcdf to raster
-        dataset = gdal.Open(out_nc, gdal.GA_ReadOnly)
-        dataset = gdal.Translate(out_tif, dataset)
-        dataset = None
-
-        # append tif to bands list
-        out_band_tifs.append(out_tif)
-
-    return out_band_tifs
 
 
-def build_lr_freqs_rois_from_hr_xr(
-        ras_lr: arcpy.Raster,
-        da_hr: xr.DataArray
-) -> str:
-
-    # get a centroid point for each grid cell on sentinel raster
-    tmp_pnts = r'memory\tmp_points'
-    arcpy.conversion.RasterToPoint(in_raster=ras_lr,
-                                   out_point_features=tmp_pnts,
-                                   raster_field='Value')
-
-    # convert points into 10m buffer circles (5 m half cell res)
-    tmp_buff = r'memory\tmp_circle_buff'
-    arcpy.analysis.PairwiseBuffer(in_features=tmp_pnts,
-                                  out_feature_class=tmp_buff,
-                                  buffer_distance_or_field='5 Meters')
-
-    # convert circle buffers to square rectangles
-    tmp_env = r'memory\tmp_square_buff'
-    arcpy.management.FeatureEnvelopeToPolygon(in_features=tmp_buff,
-                                              out_feature_class=tmp_env)
-
-    # add required fields to envelope shapefile
-    arcpy.management.AddFields(in_table=tmp_env,
-                               field_description="c_0 FLOAT;c_1 FLOAT;c_2 FLOAT;inc SHORT")
-
-    # extract all high-res class values within each low res pixel
-    with arcpy.da.UpdateCursor(tmp_env, ['c_0', 'c_1', 'c_2', 'inc', 'SHAPE@']) as cursor:
-        for row in cursor:
-            # get x and y window by slices for each polygon
-            x_slice = slice(row[-1].extent.XMin, row[-1].extent.XMax)
-            y_slice = slice(row[-1].extent.YMin, row[-1].extent.YMax)
-
-            # extract window values from high-res
-            arr = da_hr.sel(x=x_slice, y=y_slice).values
-
-            # if values exist...
-            if arr.size != 0 and ~np.all(arr == -999):
-                # flatten array
-                arr = arr.flatten()
-
-                # remove all -999 values
-                arr = arr[arr != -999]
-
-                # get num classes/counts in win, prepare labels, calc freq
-                classes, counts = np.unique(arr, return_counts=True)
-                classes = [f'c_{c}' for c in classes]
-                freqs = (counts / np.sum(counts)).astype('float16')
-
-                # init fraction map
-                class_map = {
-                    'c_0': 0.0,
-                    'c_1': 0.0,
-                    'c_2': 0.0,
-                    'inc': 1
-                }
-
-                # project existing classes and freqs onto map
-                class_map.update(dict(zip(classes, freqs)))
-
-                # fill in row values
-                row[0:4] = list(class_map.values())
-            else:
-                # set all freqs to zero when nodata exists
-                row[3] = 0
-
-            # update row
-            cursor.updateRow(row)
-
-    return tmp_env
 
 
-def regress(
-        in_rois: str,
-        in_classvalue: str,
-        in_class_desc: str,
-        in_exp_vars: list,
-        out_regress_tif: str,
-        out_cmatrix_csv: str,
-) -> None:
 
-    # convert csv to dbf for function
-    out_cmatrix_dbf = os.path.splitext(out_cmatrix_csv)[0] + '.dbf'
 
-    # perform regression
-    # FIXME: this fails if we run via PyCharm - works ok via toolbox... threading?
-    arcpy.stats.Forest(prediction_type='PREDICT_RASTER',
-                       in_features=in_rois,
-                       variable_predict=in_classvalue,
-                       explanatory_rasters=in_exp_vars,
-                       output_raster=out_regress_tif,
-                       explanatory_rasters_matching=in_exp_vars,
-                       number_of_trees=100,
-                       percentage_for_training=25,
-                       number_validation_runs=5,
-                       output_validation_table=out_cmatrix_dbf)
 
-    # create output confususion matrix as a csv
-    #out_cmx_fn = f'cm_{dt}_{classvalue}_{class_desc}.csv'.replace('-', '_')
-    #out_cmx_csv = os.path.join(fraction_folder, out_cmx_fn)
 
-    # convert dbf to csv
-    arcpy.conversion.ExportTable(in_table=out_cmatrix_dbf,
-                                 out_table=out_cmatrix_csv)
 
-    # delete dbf
-    arcpy.management.Delete(out_cmatrix_dbf)
 
-    # read csv with pandas and get average r-squares
-    avg_r2 = pd.read_csv(out_cmatrix_csv)['R2'].mean().round(3)
-    arcpy.AddMessage(f'> Average R2 for {in_classvalue} ({in_class_desc}): {str(avg_r2)}')
 
-    return
+
+
+
 
 
 def get_opcs(n):

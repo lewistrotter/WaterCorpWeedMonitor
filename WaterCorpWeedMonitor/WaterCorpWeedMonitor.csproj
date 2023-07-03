@@ -20,6 +20,7 @@
     <None Remove="Toolboxes\toolboxes\scripts\glcm.py" />
     <None Remove="Toolboxes\toolboxes\scripts\shared.py" />
     <None Remove="Toolboxes\toolboxes\scripts\uav_classify.py" />
+    <None Remove="Toolboxes\toolboxes\scripts\uav_fractions.py" />
     <None Remove="Toolboxes\toolboxes\scripts\web.py" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.pyt" />
   </ItemGroup>
@@ -40,6 +41,7 @@
     <Content Include="Toolboxes\toolboxes\scripts\glcm.py" />
     <Content Include="Toolboxes\toolboxes\scripts\shared.py" />
     <Content Include="Toolboxes\toolboxes\scripts\uav_classify.py" />
+    <Content Include="Toolboxes\toolboxes\scripts\uav_fractions.py" />
     <Content Include="Toolboxes\toolboxes\scripts\web.py" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.pyt" />
   </ItemGroup>

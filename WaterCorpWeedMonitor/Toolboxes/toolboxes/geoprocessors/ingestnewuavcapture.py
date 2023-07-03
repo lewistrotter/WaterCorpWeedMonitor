@@ -84,7 +84,7 @@ def execute(
             return
 
     # check if uav grid file exists
-    grid_tif = os.path.join(in_project_folder, 'grid', 'grid_uav.tif')
+    grid_tif = os.path.join(in_project_folder, 'grid', 'grid.tif')
     if not os.path.exists(grid_tif):
         arcpy.AddError('Project grid file does not exist.')
         return
@@ -147,7 +147,7 @@ def execute(
     arcpy.SetProgressor('default', 'Preparing clean band composite...')
 
     try:
-        # read raster, composite, reproject (wgs84 utm zone 50s), resample to standard grid
+        # read raster, composite, reproject (wgs84 utm zone 50s), resample to grid size
         tmp_cmp = arcpy.sa.CompositeBand(list(new_band_map.values()))
         tmp_prj = arcpy.ia.Reproject(tmp_cmp, {'wkid': 32750})
         tmp_rsp = arcpy.sa.Resample(tmp_prj, 'Bilinear', None, 0.05)

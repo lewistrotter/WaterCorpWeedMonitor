@@ -12,19 +12,12 @@ from osgeo import gdal
 
 from scripts import shared
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# region GDAL SET UP
-
+# config global gdal environment
 gdal.SetConfigOption('GDAL_HTTP_UNSAFESSL', 'YES')
 gdal.SetConfigOption('CPL_VSIL_CURL_ALLOWED_EXTENSIONS', 'tif')
 gdal.SetConfigOption('GDAL_HTTP_MULTIRANGE', 'YES')
 gdal.SetConfigOption('GDAL_HTTP_MERGE_CONSECUTIVE_RANGES', 'YES')
 
-# endregion
-
-
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# region CLASSES
 
 class Download:
     def __init__(
@@ -65,7 +58,6 @@ class Download:
         self.out_path = out_path
         self.out_extension = out_extension
         self.__oa_mask_dataset = None
-        self.__oa_prob_dataset = None
         self.__band_dataset = None
 
     def __repr__(self):
@@ -74,7 +66,7 @@ class Download:
     def convert_datetime_to_date(self):
         """
         Convert datetime string in date field to just date.
-        :return: Nothing.
+        :return: None.
         """
 
         if isinstance(self.date, str):
@@ -83,8 +75,9 @@ class Download:
 
     def build_oa_mask_wcs_url(self):
         """
+        Creates a WCS URL for s2 cloudless mask band.
 
-        :return:
+        :return: URL string.
         """
 
         url = build_wcs_url(self.collection,
@@ -96,25 +89,11 @@ class Download:
 
         return url
 
-    def build_oa_prob_wcs_url(self):
-        """
-
-        :return:
-        """
-
-        url = build_wcs_url(self.collection,
-                            'oa_s2cloudless_prob',
-                            self.date,
-                            self.out_bbox,
-                            self.out_epsg,
-                            self.out_res)
-
-        return url
-
     def build_band_wcs_url(self):
         """
+        Creates a WCS URL for band(s).
 
-        :return:
+        :return: URL string.
         """
 
         url = build_wcs_url(self.collection,
@@ -128,8 +107,9 @@ class Download:
 
     def build_output_filepath(self):
         """
+        Creates an output path for downloaded file.
 
-        :return:
+        :return: File path string.
         """
 
         out_file = os.path.join(self.out_path, 'R' + self.date + self.out_extension)
@@ -138,44 +118,38 @@ class Download:
 
     def set_oa_mask_dataset_via_wcs(self):
         """
+        Set s2 cloudless mask gdal dataset via WCS URL.
 
-        :return:
+        :return: None.
         """
 
         try:
             url = self.build_oa_mask_wcs_url()
             self.__oa_mask_dataset = gdal.Open(url, gdal.GA_ReadOnly)
-        except Exception as e:
-            raise e
 
-    def set_oa_prob_dataset_via_wcs(self):
-        """
-
-        :return:
-        """
-
-        try:
-            url = self.build_oa_prob_wcs_url()
-            self.__oa_prob_dataset = gdal.Open(url, gdal.GA_ReadOnly)
         except Exception as e:
             raise e
 
     def set_band_dataset_via_wcs(self):
         """
+        Set band gdal dataset via WCS URL.
 
-        :return:
+        :return: None.
         """
 
         try:
             url = self.build_band_wcs_url()
             self.__band_dataset = gdal.Open(url, gdal.GA_Update)
+
         except Exception as e:
             raise e
 
     def get_percent_out_of_bounds_mask_pixels(self):
         """
+        Calculate the percent (0 - 100) of invalid pixels
+        that are out of bounds of scene (i.e., not cloud pixels).
 
-        :return:
+        :return: Percent out of bounds or None.
         """
 
         if self.__oa_mask_dataset is not None:
@@ -191,9 +165,11 @@ class Download:
 
     def get_percent_invalid_mask_pixels(self, quality_flags):
         """
+        Calculate the percent (0 - 100) of invalid pixels
+        that are clouds within the scene.
 
-        :param quality_flags:
-        :return:
+        :param quality_flags: Pixel values containing invalid classes.
+        :return: Percent out of bounds or None.
         """
 
         if self.__oa_mask_dataset is not None:
@@ -207,120 +183,19 @@ class Download:
 
         return
 
-    def set_band_dataset_nodata_via_mask(self, quality_flags, no_data_value):
-        """
-
-        :param quality_flags:
-        :param no_data_value:
-        :return:
-        """
-
-        mask_arr = self.__oa_mask_dataset.ReadAsArray()
-        mask_arr = np.isin(mask_arr, quality_flags)  # not including 0 as valid
-
-        # prob_arr = self.__oa_prob_dataset.ReadAsArray()
-        # & (prob_arr > 0.9)
-
-        band_arr = self.__band_dataset.ReadAsArray()
-        band_arr = np.where(band_arr == -999, no_data_value, band_arr)  # set DEA nodata (-999) to user no data
-        band_arr = np.where(mask_arr, band_arr, no_data_value)
-
-        self.__band_dataset.WriteArray(band_arr)
-
-    def export_band_dataset_to_netcdf_file(self, nodata_value):
-        """
-
-        :param nodata_value:
-        :return:
-        """
-
-        options = {'noData': nodata_value}
-
-        out_filepath = self.build_output_filepath()
-        gdal.Translate(out_filepath,
-                       self.__band_dataset,
-                       **options)
-
-        self.fix_netcdf_metadata()
-
-    def fix_netcdf_metadata(self):
-        """
-
-        :return:
-        """
-
-        filepath = self.build_output_filepath()
-        ds = xr.open_dataset(filepath)  # using 'with' has caused issues before, avoiding
-
-        # FIXME: newer versions of gdal may break this
-        for band in ds:
-            if len(ds[band].shape) == 0:
-                crs_name = band
-                crs_wkt = str(ds[band].attrs.get('spatial_ref'))
-                ds = ds.drop_vars(crs_name)
-                break
-
-        ds = ds.assign_coords({'spatial_ref': self.out_epsg})
-        ds['spatial_ref'].attrs = {
-            'spatial_ref': crs_wkt,
-            'grid_mapping_name': crs_name
-        }
-
-        if 'time' not in ds:
-            dt = pd.to_datetime(self.date, format='%Y-%m-%d')
-            ds = ds.assign_coords({'time': dt.to_numpy()})
-            ds = ds.expand_dims('time')
-
-        for dim in ds.dims:
-            if dim in ['x', 'y', 'lat', 'lon']:
-                ds[dim].attrs = {
-                    #'units': 'metre'  # TODO: how to get units?
-                    'resolution': np.mean(np.diff(ds[dim])),
-                    'crs': f'EPSG:{self.out_epsg}'
-                }
-
-        for i, band in enumerate(ds):
-            ds[band].attrs = {
-                'units': '1',
-                #'nodata': self.nodata,  TODO: implemented out_nodata
-                'crs': f'EPSG:{self.out_epsg}',
-                'grid_mapping': 'spatial_ref',
-            }
-
-            ds = ds.rename({band: self.assets[i]})
-
-        # TODO: we wipe gdal, history, conventions, other metadata
-        ds.attrs = {
-            'crs': f'EPSG:{self.out_epsg}',
-            'grid_mapping': 'spatial_ref'
-        }
-
-        ds.to_netcdf(filepath)
-        ds.close()
-
-    def close_datasets(self):
-        """
-
-        :return:
-        """
-
-        self.__oa_mask_dataset = None
-        self.__oa_prob_dataset = None
-        self.__oa_band_dataset = None
-
     def is_mask_valid(self, quality_flags, max_out_of_bounds, max_invalid_pixels):
         """
+        Determine if mask contains too many invalid
+        pixels or not.
 
-        :param quality_flags:
-        :param max_out_of_bounds:
-        :param max_invalid_pixels:
-        :return:
+        :param quality_flags: Set pixel mask classes.
+        :param max_out_of_bounds:  Percentage of pixels out of bounds.
+        :param max_invalid_pixels: Percentage of invalid pixels.
+        :return: True or False boolean.
         """
 
         if self.__oa_mask_dataset is None:
             return False
-        #elif self.__oa_prob_dataset is None:  # disabled for now
-            #return False
 
         pct_out_of_bounds = self.get_percent_out_of_bounds_mask_pixels()
         if pct_out_of_bounds is not None and pct_out_of_bounds > max_out_of_bounds:
@@ -332,11 +207,72 @@ class Download:
 
         return True
 
-# endregion
+    def set_band_dataset_nodata_via_mask(self, quality_flags, no_data_value):
+        """
+        Set band dataset invalid pixels to nodata value.
 
+        :param quality_flags: Invalid pixel mask classes.
+        :param no_data_value: Value to convert invalid pixels to.
+        :return: None.
+        """
 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# region CONSTRUCTORS
+        mask_arr = self.__oa_mask_dataset.ReadAsArray()
+        mask_arr = np.isin(mask_arr, quality_flags)  # not including 0 as valid
+
+        band_arr = self.__band_dataset.ReadAsArray()
+        band_arr = np.where(band_arr == -999, no_data_value, band_arr)  # set DEA nodata (-999) to user no data
+        band_arr = np.where(mask_arr, band_arr, no_data_value)
+
+        self.__band_dataset.WriteArray(band_arr)
+
+    def export_band_dataset_to_netcdf_file(self, nodata_value):
+        """
+        Export downloaded gdal dataset to NetCDF file.
+
+        :param nodata_value: Set no data value for output.
+        :return: None.
+        """
+
+        options = {'noData': nodata_value, 'xRes': 10.0, 'yRes': 10.0}
+
+        out_filepath = self.build_output_filepath()
+        gdal.Translate(out_filepath,
+                       self.__band_dataset,
+                       **options)
+
+        self.fix_netcdf_metadata()
+
+    def fix_netcdf_metadata(self):
+        """
+        Fix NetCDF attributes.
+
+        :return: None.
+        """
+
+        filepath = self.build_output_filepath()
+
+        ds = xr.open_dataset(filepath)  # note: using 'with' has caused issues before, avoiding
+        ds = ds.load()
+        ds.close()
+
+        ds = shared.fix_xr_attrs(ds=ds,
+                                 out_vars=self.assets,
+                                 out_datetime=self.date,
+                                 out_epsg=self.out_epsg)
+
+        ds.to_netcdf(filepath)
+        ds.close()
+
+    def close_datasets(self):
+        """
+        Close private gdal datasets.
+
+        :return: None
+        """
+
+        self.__oa_mask_dataset = None
+        self.__band_dataset = None
+
 
 def build_stac_query_url(
         collection,
@@ -409,7 +345,9 @@ def build_wcs_url(
     return url
 
 
-def query_stac_endpoint(stac_url):
+def query_stac_endpoint(
+        stac_url
+):
     """
     Takes a single DEA STAC endpoint query url and returns all available features
     found for the search parameters.
@@ -502,8 +440,6 @@ def convert_stac_features_to_downloads(
     :return: List of Download objects.
     """
 
-    # TODO: clean up and error handling needed
-
     downloads = []
     for feature in features:
         collection = feature.get('collection')
@@ -533,7 +469,9 @@ def convert_stac_features_to_downloads(
     return downloads
 
 
-def group_downloads_by_solar_day(downloads):
+def group_downloads_by_solar_day(
+        downloads
+):
     """
     Takes a list of download objects and groups them into solar day,
     ensuring each DEA STAC download includes contiguous scene pixels
@@ -561,12 +499,17 @@ def group_downloads_by_solar_day(downloads):
     return clean_downloads
 
 
-def remove_existing_downloads(downloads, existing_dates):
+def remove_existing_downloads(
+        downloads,
+        existing_dates
+):
     """
+    Removes any downloads based on datetime if provided
+    in the existing dates list input.
 
-    :param downloads:
-    :param existing_dates:
-    :return:
+    :param downloads: List of download objects.
+    :param existing_dates: List of strings in format YYYY-MM-DD.
+    :return: List of clean downloads.
     """
 
     clean_downloads = []
@@ -580,11 +523,14 @@ def remove_existing_downloads(downloads, existing_dates):
     return clean_downloads
 
 
-def remove_downloads_for_current_month(downloads):
+def remove_downloads_for_current_month(
+        downloads
+):
     """
+    Remove any downloads falling into current year and month.
 
-    :param downloads:
-    :return:
+    :param downloads: List of download objects.
+    :return: List of clean downloads.
     """
 
     now_year = datetime.datetime.now().year
@@ -625,7 +571,6 @@ def validate_and_download(
 
     try:
         download.set_oa_mask_dataset_via_wcs()
-        #download.set_oa_prob_dataset_via_wcs()  # disabled for now
         is_valid = download.is_mask_valid(quality_flags,
                                           max_out_of_bounds,
                                           max_invalid_pixels)
@@ -648,83 +593,20 @@ def validate_and_download(
     return message
 
 
-def combine_netcdf_files(data_folder, out_nc):
-    """
-
-    :param data_folder:
-    :return:
-    """
-
-    files = []
-    for file in os.listdir(data_folder):
-        if file.endswith('.nc'):
-            files.append(os.path.join(data_folder, file))
-
-    if len(files) < 2:
-        return
-
-    ds_list = []
-    for file in files:
-        ds = xr.open_dataset(file)
-        ds_list.append(ds)
-
-    ds = xr.concat(ds_list, dim='time').sortby('time')
-    ds.to_netcdf(out_nc)
-    ds.close()
-
-    for ds in ds_list:
-        ds.close()
-
-    try:
-        shutil.rmtree(data_folder)
-    except:
-        arcpy.AddMessage('Could not delete NetCDFs data folder.')
-
-    return
-
-
-def downloads_to_folder(data_folder, out_folder):
-    """
-
-    :param data_folder:
-    :param out_folder:
-    :return:
-    """
-
-    for file in os.listdir(data_folder):
-        in_file = os.path.join(data_folder, file)
-        out_file = os.path.join(out_folder, file)
-        shutil.move(in_file, out_file)
-
-    try:
-        shutil.rmtree(data_folder)
-    except:
-        arcpy.AddMessage('Could not delete NetCDFs data folder.')
-
-
-def get_s2_wc_downloads(
-        grid_tif: str,
+def quick_fetch(
+        start_date: str,
+        end_date: str,
+        stac_bbox: tuple,
+        out_bbox: tuple,
         out_folder: str,
-
 ) -> list:
 
-    # set sentinel 2 data date range
-    start_date, end_date = '2017-01-01', '2039-12-31'
-
     # set dea sentinel 2 collection 3 names
-    collections = [
-        'ga_s2am_ard_3',
-        'ga_s2bm_ard_3'
-    ]
+    collections = ['ga_s2am_ard_3', 'ga_s2bm_ard_3']
 
-    # reproject grid to wgs84 bounding box
-    tmp_grd = arcpy.Raster(grid_tif)
-    tmp_prj = arcpy.ia.Reproject(tmp_grd, {'wkid': 4326})
-
-    # get bounding box in wgs84 for stac query
-    stac_bbox = shared.get_bbox_from_raster(tmp_prj)
+    # check stac bbox is valid
     if len(stac_bbox) != 4:
-        raise ValueError('Could not generate STAC bounding box.')
+        raise ValueError('STAC bounding box needs 2 coordinate pairs.')
 
     try:
         # get all stac features from 2017 to now
@@ -757,22 +639,9 @@ def get_s2_wc_downloads(
         'nbart_swir_3'
     ]
 
-    # reproject grid to albers now
-    tmp_grd = arcpy.Raster(grid_tif)
-    tmp_prj = arcpy.ia.Reproject(tmp_grd, {'wkid': 3577})
-
-    # get bounding box in wgs84 for stac query
-    out_bbox = shared.get_bbox_from_raster(tmp_prj)
+    # check if output bbox is valid
     if len(out_bbox) != 4:
-        raise ValueError('Could not generate output bounding box.')
-
-    # add 30 metres on every side to prevent gaps
-    out_bbox = shared.expand_box_by_metres(bbox=out_bbox, metres=30)
-
-    # set raw output nc folder (one nc per date)
-    raw_ncs_folder = os.path.join(out_folder, 'raw_ncs')
-    if not os.path.exists(raw_ncs_folder):
-        os.mkdir(raw_ncs_folder)
+        raise ValueError('Output bounding box needs 2 coordinate pairs.')
 
     try:
         # prepare downloads from raw stac features
@@ -780,8 +649,8 @@ def get_s2_wc_downloads(
                                                        assets=assets,
                                                        out_bbox=out_bbox,
                                                        out_epsg=3577,
-                                                       out_res=10,
-                                                       out_path=raw_ncs_folder,
+                                                       out_res=10.0,
+                                                       out_path=out_folder,
                                                        out_extension='.nc')
 
     except Exception as e:
@@ -802,10 +671,10 @@ def get_s2_wc_downloads(
 
     # get existing netcdfs and convert to dates
     exist_dates = []
-    for file in os.listdir(raw_ncs_folder):
-        if file != 'monthly_meds.nc' and file.endswith('.nc'):
-            file = file.replace('R', '').replace('.nc', '')
-            exist_dates.append(file)
+    for file in os.listdir(out_folder):
+        if file.endswith('.nc'):
+            file_date = file.replace('R', '').replace('.nc', '')
+            exist_dates.append(file_date)
 
     # remove downloads that already exist in sat folder
     if len(exist_dates) > 0:
@@ -817,5 +686,3 @@ def get_s2_wc_downloads(
             return []
 
     return downloads
-
-# endregion

@@ -183,7 +183,7 @@ def execute(
         return
 
     # add 30 metres on every side to prevent gaps
-    out_bbox = shared.expand_box_by_metres(bbox=out_bbox, metres=30)
+    out_bbox = shared.expand_bbox(bbox=out_bbox, metres=30)
 
     # set raw output nc folder (one nc per date)
     raw_ncs_folder = os.path.join(in_out_folder, 'raw_ncs')

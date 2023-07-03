@@ -140,9 +140,9 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region CREATE BASELINE GRID
+    # region CREATE BASELINE UAV GRID
 
-    arcpy.SetProgressor('default', 'Creating baseline grids...')
+    arcpy.SetProgressor('default', 'Creating baseline UAV grid...')
 
     # set project grid folder
     grid_folder = os.path.join(in_out_folder, 'grid')
@@ -150,20 +150,13 @@ def execute(
     try:
         # build uniform grid for future uav resampling
         arcpy.management.CreateRandomRaster(out_path=grid_folder,
-                                            out_name='grid_uav.tif',
+                                            out_name='grid.tif',
                                             distribution='INTEGER 1 1',
                                             raster_extent=tmp_rsp,
                                             cellsize=0.05)
 
-        # build uniform grid for future sentinel 2 resampling
-        arcpy.management.CreateRandomRaster(out_path=grid_folder,
-                                            out_name='grid_s2.tif',
-                                            distribution='INTEGER 1 1',
-                                            raster_extent=tmp_rsp,
-                                            cellsize=10.0)
-
     except Exception as e:
-        arcpy.AddError('Could not create baseline grids. See messages.')
+        arcpy.AddError('Could not create baseline UAV grid. See messages.')
         arcpy.AddMessage(str(e))
         return
 
@@ -204,7 +197,7 @@ def execute(
 
     try:
         # set uav grid tif path and read it in as raster
-        grid_tif = os.path.join(grid_folder, 'grid_uav.tif')
+        grid_tif = os.path.join(grid_folder, 'grid.tif')
         tmp_grd = arcpy.Raster(grid_tif)
 
         # set up step-wise progressor
