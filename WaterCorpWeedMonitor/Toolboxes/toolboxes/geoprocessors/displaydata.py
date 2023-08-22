@@ -69,7 +69,7 @@ def execute(
     in_project_folder = os.path.dirname(in_project_file)
 
     # check if required project folders already exist, error if so
-    sub_folders = ['grid', 'uav_captures', 'sat_captures', 'visualise']
+    sub_folders = ['boundary', 'grid', 'uav_captures', 'sat_captures', 'visualise']
     for sub_folder in sub_folders:
         sub_folder = os.path.join(in_project_folder, sub_folder)
         if not os.path.exists(sub_folder):

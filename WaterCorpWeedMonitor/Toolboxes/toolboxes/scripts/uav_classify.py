@@ -19,9 +19,6 @@ def make_grayscale(
     :return: Grayscale as a arcpy.Raster object.
     """
 
-    # init output
-    tmp_rsc = None
-
     try:
         # generate pca and return first principal band only
         tmp_pca = arcpy.sa.PrincipalComponents(in_raster_bands=in_band_list,
@@ -43,7 +40,6 @@ def make_grayscale(
         raise e
 
     return tmp_rsc
-
 
 def validate_rois(
         in_roi_feat: str,
@@ -72,7 +68,7 @@ def validate_rois(
         raise e
 
     # check if spatial reference is in wgs84 utm zone 50s (32750)
-    if fc_srs == 'Unknown' or fc_srs.factoryCode != 32750:
+    if fc_srs == 'Unknown' or fc_srs.factoryCode != 3577:
         raise ValueError('Training areas not projected in WGS84 UTM Zone 50S (32750).')
 
     # check if required fields exist

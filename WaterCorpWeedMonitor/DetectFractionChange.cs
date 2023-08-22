@@ -20,11 +20,11 @@ using System.Threading.Tasks;
 
 namespace WaterCorpWeedMonitor
 {
-    internal class DetectChange : Button
+    internal class DetectFractionChange : Button
     {
         protected override void OnClick()
         {
-            string toolname = "WCMonitor.DetectChange";
+            string toolname = "WCMonitor.DetectFractionChange";
 
             try
             {

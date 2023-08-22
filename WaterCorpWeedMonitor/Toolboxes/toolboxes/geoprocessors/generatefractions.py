@@ -1,7 +1,6 @@
 
 def execute(
         parameters
-        # messages # TODO: implement
 ):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region IMPORTS
@@ -10,14 +9,9 @@ def execute(
     import json
     import numpy as np
     import xarray as xr
-    import multiprocessing as mp
     import arcpy
 
-    from scipy.stats import zscore
-    from concurrent.futures import ThreadPoolExecutor
-    from concurrent.futures import as_completed
-
-    from scripts import web, uav_fractions, shared
+    from scripts import uav_fractions, web, shared
 
     # endregion
 
@@ -25,12 +19,12 @@ def execute(
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    # in_project_file = parameters[0].valueAsText
-    # in_flight_datetime = parameters[1].value
+    in_project_file = parameters[0].valueAsText
+    in_flight_datetime = parameters[1].value
 
     # inputs for testing only
-    in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
-    in_flight_datetime = '2023-06-09 13:03:39'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
+    # in_flight_datetime = '2023-02-02 22:01:00'
 
     # endregion
 
@@ -39,7 +33,12 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing environment...')
 
-    # check if user has spatial analyst, error if not
+    # check if advanced license is available
+    if arcpy.CheckProduct('ArcInfo') not in ['AlreadyInitialized', 'Available']:
+        arcpy.AddError('Advanced ArcGIS Pro license is unavailable.')
+        return
+
+    # check if user has spatial/image analyst, error if not
     if arcpy.CheckExtension('Spatial') != 'Available':
         arcpy.AddError('Spatial Analyst license is unavailable.')
         return
@@ -70,18 +69,36 @@ def execute(
     in_project_folder = os.path.dirname(in_project_file)
 
     # check if required project folders already exist, error if so
-    sub_folders = ['grid', 'uav_captures', 'sat_captures', 'visualise']
+    sub_folders = ['boundary', 'grid', 'uav_captures', 'sat_captures', 'visualise']
     for sub_folder in sub_folders:
         sub_folder = os.path.join(in_project_folder, sub_folder)
         if not os.path.exists(sub_folder):
-            arcpy.AddError('Project folder is missing expected folders.')
+            arcpy.AddError('Project is missing required folders.')
             return
 
     # check if uav grid file exists
     grid_tif = os.path.join(in_project_folder, 'grid', 'grid.tif')
     if not os.path.exists(grid_tif):
-        arcpy.AddError('UAV grid raster does not exist.')
+        arcpy.AddError('Project grid file does not exist.')
         return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region CREATE AND SET WORKSPACE TO TEMPORARY FOLDER
+
+    arcpy.SetProgressor('default', 'Preparing workspace...')
+
+    # create temp folder if does not already exist
+    tmp = os.path.join(in_project_folder, 'tmp')
+    if not os.path.exists(tmp):
+        os.mkdir(tmp)
+
+    # clear temp folder (errors skipped)
+    shared.clear_tmp_folder(tmp_folder=tmp)
+
+    # set temp folder to arcpy workspace
+    arcpy.env.workspace = tmp
 
     # endregion
 
@@ -108,7 +125,7 @@ def execute(
     # check and get start of rehab date
     rehab_start_date = meta.get('date_rehab')
     if rehab_start_date is None:
-        arcpy.AddError('Project has no start of rehab date.')
+        arcpy.AddError('Project has no rehab start date.')
         return
 
     # endregion
@@ -145,7 +162,7 @@ def execute(
 
     try:
         # set query date range, collections and assets
-        start_date, end_date = '2017-01-01', '2039-12-31'
+        start_date, end_date = '2016-01-01', '2039-12-31'
 
         # read grid as raster
         tmp_grd = arcpy.Raster(grid_tif)
@@ -155,19 +172,19 @@ def execute(
 
         # get output netcdf bbox in albers and expand
         out_bbox = shared.get_raster_bbox(in_ras=tmp_grd, out_epsg=3577)
-        out_bbox = shared.expand_bbox(bbox=out_bbox, by_metres=30.0)
+        out_bbox = shared.expand_bbox(bbox=out_bbox, by_metres=50.0)
 
         # set output folder for raw sentinel 2 cubes and check
-        out_raw_folder = os.path.join(sat_folder, 'raw_ncs')
-        if not os.path.exists(out_raw_folder):
-            os.mkdir(out_raw_folder)
+        raw_ncs_folder = os.path.join(sat_folder, 'raw_ncs')
+        if not os.path.exists(raw_ncs_folder):
+            os.mkdir(raw_ncs_folder)
 
         # query and prepare downloads
         downloads = web.quick_fetch(start_date=start_date,
                                     end_date=end_date,
                                     stac_bbox=stac_bbox,
                                     out_bbox=out_bbox,
-                                    out_folder=out_raw_folder)
+                                    out_folder=raw_ncs_folder)
 
     except Exception as e:
         arcpy.AddError('Unable to download Sentinel 2 data from DEA. See messages.')
@@ -184,34 +201,15 @@ def execute(
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region DOWNLOAD WCS DATA
 
-    arcpy.SetProgressor('step', 'Downloading Sentinel 2 data...', 0, len(downloads), 1)
-
-    # set relevant download parameters
-    num_cpu = int(np.ceil(mp.cpu_count() / 2))
-
-    # TODO: move to quick fetch func and remove this block if progressor works
+    arcpy.SetProgressor('default', 'Downloading Sentinel 2 data...')
 
     try:
-        i = 0
-        results = []
-        with ThreadPoolExecutor(max_workers=num_cpu) as pool:
-            futures = []
-            for download in downloads:
-                task = pool.submit(web.validate_and_download,
-                                   download,
-                                   [1],   # quality_flags,
-                                   1,     # max_out_of_bounds,
-                                   0,     # max_invalid_pixels,
-                                   -999)  # nodata_value
-                futures.append(task)
-
-            for future in as_completed(futures):
-                arcpy.AddMessage(future.result())
-                results.append(future.result())
-
-                i += 1
-                if i % 1 == 0:
-                    arcpy.SetProgressorPosition(i)
+        # download everything and return success or fail statuses
+        results = web.quick_download(downloads=downloads,
+                                     quality_flags=[1],
+                                     max_out_of_bounds=1,
+                                     max_invalid_pixels=1,
+                                     nodata_value=-999)
 
     except Exception as e:
         arcpy.AddError('Unable to download Sentinel 2 data from DEA. See messages.')
@@ -219,24 +217,36 @@ def execute(
         return
 
     # check if any valid downloads (non-cloud or new)
-    num_valid_downlaods = len([dl for dl in results if 'success' in dl])
-    if num_valid_downlaods == 0:
-        arcpy.AddMessage('No new valid satellite downloads were found.')
-        return
+    num_valid_downloads = len([dl for dl in results if 'success' in dl])
+    if num_valid_downloads == 0:
+        arcpy.AddMessage('No new valid satellite downloads were found. Checking fractions.')
+        return  # TODO: carry on in case fractionals remain unprocessed?
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region COMBINE NETCDFS INTO MONTHLY MEDIANS
+    # region VALIDATE SENTINEL 2 NETCDFS
+
+    arcpy.SetProgressor('default', 'Validating Sentinel 2 data...')
+
+    # check results for errors and delete errorneous nc files
+    try:
+        web.delete_error_downloads(results=results,
+                                   nc_folder=raw_ncs_folder)
+
+    except Exception as e:
+        arcpy.AddError('Unable to delete errorneous Sentinel 2 data. See messages.')
+        arcpy.AddMessage(str(e))
+        pass
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region COMBINE SENTINEL 2 NETCDFS
 
     arcpy.SetProgressor('default', 'Combining Sentinel 2 data...')
 
-    # set raw output nc folder (one nc per date)
-    raw_ncs_folder = os.path.join(sat_folder, 'raw_ncs')
-    if not os.path.exists(raw_ncs_folder):
-        os.mkdir(raw_ncs_folder)
-
-    # get all raw ncs in raw netcdf folder
+    # get all raw nc dates in raw netcdf folder
     nc_files = []
     for file in os.listdir(raw_ncs_folder):
         if file.startswith('R') and file.endswith('.nc'):
@@ -247,56 +257,9 @@ def execute(
         arcpy.AddError('No NetCDF files were found.')
         return
 
-    # TODO: move this to isolated function
-
     try:
-        # load each netcdf and append to list
-        ds_list = []
-        for nc_file in nc_files:
-            with xr.open_dataset(nc_file) as nc:
-                nc.load()
-            ds_list.append(nc)
-
-        # combine all netcdfs into one and sort by date
-        ds = xr.concat(ds_list, 'time').sortby('time')
-
-        # extract netcdf attributes
-        ds_attrs = ds.attrs
-        ds_band_attrs = ds[list(ds)[0]].attrs
-        ds_spatial_ref_attrs = ds['spatial_ref'].attrs
-
-        # set nodata (-999) to nan
-        ds = ds.where(ds != -999)
-
-        # detect outliers via z-score, make mask, set pixel to nan when any band is outlier nan
-        z_mask = xr.apply_ufunc(zscore, ds, 0)    # 0 is time dim
-        z_mask = np.abs(z_mask) > 3.29            # p-value 0.001
-        z_mask = z_mask.to_array().max('variable')
-
-        # set pixels to nan where outlier detected
-        ds = ds.where(~z_mask)
-
-        # resample to monthly means and interpolate
-        ds = ds.resample(time='1MS').median('time')
-        ds = ds.interpolate_na('time')
-
-        # append attributes back on
-        ds.attrs = ds_attrs
-        ds['spatial_ref'].attrs = ds_spatial_ref_attrs
-        for var in ds:
-            ds[var].attrs = ds_band_attrs
-
-        # TODO: back and forward fill
-
-        # set combined output nc folder (one nc per month)
-        cmb_ncs_folder = os.path.join(sat_folder, 'cmb_ncs')
-        if not os.path.exists(cmb_ncs_folder):
-            os.mkdir(cmb_ncs_folder)
-
-        # export combined monthly median as new netcdf
-        out_montly_meds_nc = os.path.join(cmb_ncs_folder, 'raw_monthly_meds.nc')
-        ds.to_netcdf(out_montly_meds_nc)
-        ds.close()
+        # read all netcdfs into single dataset
+        ds = shared.concat_netcdf_files(nc_files=nc_files)
 
     except Exception as e:
         arcpy.AddError('Unable to combine Sentinel 2 NetCDFs. See messages.')
@@ -306,9 +269,70 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region LOAD HIGH RES CLASSIFIED DRONE IMAGE AS XR DATASET
+    # region CLEAN SENTINEL 2 NETCDFS
 
-    arcpy.SetProgressor('default', 'Preparing high-resolution classified UAV data...')
+    arcpy.SetProgressor('default', 'Cleaning Sentinel 2 data...')
+
+    try:
+        # extract netcdf attributes
+        ds_attrs = ds.attrs
+        ds_band_attrs = ds[list(ds)[0]].attrs
+        ds_spatial_ref_attrs = ds['spatial_ref'].attrs
+
+        # set nodata (-999) to nan
+        ds = ds.where(ds != -999)
+
+        # set pixel to nan when any band has outlier within pval 0.001 per date
+        # TODO: check this func isnt setting all pixels nan when outlier
+        ds = uav_fractions.remove_xr_outliers(ds=ds,
+                                              max_z_value=3.29)
+
+        # resample to monthly medians and interpolate nan
+        ds = uav_fractions.resample_xr_monthly_medians(ds=ds)
+
+        # TODO: back and forward fill
+        # ...
+
+        # append attributes back on
+        ds.attrs = ds_attrs
+        ds['spatial_ref'].attrs = ds_spatial_ref_attrs
+        for var in ds:
+            ds[var].attrs = ds_band_attrs
+
+    except Exception as e:
+        arcpy.AddError('Unable to clean Sentinel 2 NetCDFs. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region EXPORT CLEAN SENTINEL 2 NETCDF
+
+    arcpy.SetProgressor('default', 'Exporting clean Sentinel 2 data...')
+
+    # set combined output nc folder
+    cmb_ncs_folder = os.path.join(sat_folder, 'cmb_ncs')
+    if not os.path.exists(cmb_ncs_folder):
+        os.mkdir(cmb_ncs_folder)
+
+    try:
+        # export combined monthly median as new netcdf
+        out_montly_meds_nc = os.path.join(cmb_ncs_folder, 'raw_monthly_meds.nc')
+        ds.to_netcdf(out_montly_meds_nc)
+        ds.close()
+
+    except Exception as e:
+        arcpy.AddError('Unable to export clean Sentinel 2 NetCDF. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region READ HIGH RES CLASSIFIED DRONE IMAGE AS XR DATASET
+
+    arcpy.SetProgressor('default', 'Reading high-resolution classified UAV data...')
 
     # set up capture and classify folders
     capture_folders = os.path.join(in_project_folder, 'uav_captures')
@@ -324,41 +348,43 @@ def execute(
         return
 
     try:
-        # read classified uav image (take tif of best classified model) into scratch
-        tmp_class_nc = os.path.join(arcpy.env.scratchFolder, 'rf_optimal.nc')
-        arcpy.md.RasterToNetCDF(in_raster=optimal_rf_tif,
-                                out_netCDF_file=tmp_class_nc,
-                                variable='Band1',
-                                x_dimension='x',
-                                y_dimension='y')
+        # read classified uav image as xr (save netcdf to tmp)
+        tmp_cls_nc = os.path.join(tmp, 'rf_optimal.nc')
+        ds_hr = shared.raster_to_xr(in_ras=optimal_rf_tif,
+                                    out_nc=tmp_cls_nc,
+                                    epsg=3577,
+                                    datetime=None,
+                                    var_names=None,
+                                    dtype='float32')
 
-        # read it in as netcdf
-        with xr.open_dataset(tmp_class_nc) as ds_hr:
-            ds_hr.load()
-
-        # prepare it for use (get 2d array, set nan to -999, int16 for speed)
+        # convert to array and clean it up for efficiency
         da_hr = ds_hr[['Band1']].to_array().squeeze(drop=True)
         da_hr = xr.where(~np.isnan(da_hr), da_hr, -999).astype('int16')
 
     except Exception as e:
-        arcpy.AddError('Could not load classified UAV image. See messages.')
+        arcpy.AddError('Could not read classified UAV image. See messages.')
         arcpy.AddMessage(str(e))
         return
+
+    # check if classified uav has the four classes
+    for cls in np.unique(da_hr):
+        if cls not in [-999, 0, 1, 2]:
+            raise ValueError('High-resolution xr can only have classes 0, 1, 2.')
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region LOAD LOW RES SENTINEL 2 MEDIAN XR DATASET
+    # region READ LOW RES SENTINEL 2 MEDIAN XR DATASET
 
-    arcpy.SetProgressor('default', 'Preparing low-resolution Sentinel 2 data...')
+    arcpy.SetProgressor('default', 'Reading low-resolution Sentinel 2 data...')
 
     try:
         # load monthly median low-res satellite data
         with xr.open_dataset(out_montly_meds_nc) as ds_lr:
             ds_lr.load()
 
-        # slice from 2017-01-01 up to now
-        ds_lr = ds_lr.sel(time=slice('2017-01-01', None))
+        # slice from 2016-01-01 up to now
+        ds_lr = ds_lr.sel(time=slice('2016-01-01', None))
 
     except Exception as e:
         arcpy.AddError('Could not load Sentinel 2 images. See messages.')
@@ -378,74 +404,16 @@ def execute(
     arcpy.SetProgressor('default', 'Creating training areas...')
 
     try:
-        # get an all-time max of sentinel 2 cube to remove nulls
-        tmp_da = ds_lr.max('time', keep_attrs=True)
-
-        # export temp max netcdf to scratch
-        tmp_max_nc = os.path.join(arcpy.env.scratchFolder, 'tmp_max.nc')
-        tmp_da.to_netcdf(tmp_max_nc)
-
-        # convert temporary netcdf to a crf
-        tmp_max_crf = os.path.join(arcpy.env.scratchFolder, 'tmp_max.crf')
-        arcpy.management.CopyRaster(in_raster=tmp_max_nc,
-                                    out_rasterdataset=tmp_max_crf)
-
-        # read temp crf in as reproject to 32750
-        tmp_max_cmp = arcpy.Raster(tmp_max_crf)
-        tmp_max_prj = arcpy.ia.Reproject(tmp_max_cmp, {'wkid': 32750})
-
-        # create grid of 10 m rois from crf pixels in scratch
-        tmp_rois = os.path.join(arcpy.env.scratchFolder, 'tmp_roi.shp')
-        tmp_rois = uav_fractions.build_rois_from_raster(in_ras=tmp_max_prj,
-                                                        out_rois=tmp_rois)
+        # generate roi point shapefile with frequencies
+        tmp_roi = os.path.join(tmp, 'tmp_roi.shp')
+        uav_fractions.create_roi_freq_points(da_hr=da_hr,
+                                             ds_lr=ds_lr,
+                                             out_shp=tmp_roi)
 
     except Exception as e:
         arcpy.AddError('Could not create training areas. See messages.')
         arcpy.AddMessage(str(e))
         return
-
-    # endregion
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region CALCULATE CLASS FREQUENCIES PER ROI
-
-    arcpy.SetProgressor('default', 'Calculating class fractions in training areas...')
-
-    try:
-        # calculate freq of high-res class pixels per sentinel 2 roi window
-        tmp_rois = uav_fractions.calculate_roi_freqs(rois=tmp_rois,
-                                                     da_hr=da_hr)
-
-        # subset to valid rois (i.e., not all nans) only and save shapefile
-        rois = os.path.join(arcpy.env.scratchFolder, 'rois.shp')
-        arcpy.analysis.Select(in_features=tmp_rois,
-                              out_feature_class=rois,
-                              where_clause='inc = 1')
-
-    except Exception as e:
-        arcpy.AddError('Could not calculate class fractions. See messages.')
-        arcpy.AddMessage(str(e))
-        return
-
-    # endregion
-
-    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region GENERATE RANDOM SAMPLES IN CLASS FRACTION ROIS
-
-    arcpy.SetProgressor('default', 'Generating random samples...')
-
-    # create random samples in roi polygons and save to scratch
-    tmp_rnd_pnt = r'memory\rnd_pnt'
-    arcpy.management.CreateRandomPoints(out_path=r'memory',
-                                        out_name='rnd_pnt',
-                                        constraining_feature_class=rois,
-                                        number_of_points_or_field=2)
-
-    # extract class values from rois per point
-    tmp_smp = r'memory\tmp_smp'
-    arcpy.analysis.PairwiseIntersect(in_features=[tmp_rnd_pnt, rois],
-                                     out_feature_class=tmp_smp,
-                                     output_type='POINT')
 
     # endregion
 
@@ -468,7 +436,6 @@ def execute(
     # set up step-wise progressor
     arcpy.SetProgressor('step', None, 0, len(ds_lr['time']))
 
-    # TODO: break these up into seperate try excepts
     try:
         # iterate each date...
         for i in range(0, len(ds_lr['time'])):
@@ -481,65 +448,77 @@ def execute(
                 arcpy.AddMessage(f'Skipping fractions for date: {dt}, already done.')
                 continue
 
-            # notify of date currently processing
-            arcpy.AddMessage(f'Generating fractions for date: {dt}.')
+            # notify user of date
+            arcpy.AddMessage(f'Working on date: {dt}')
 
             # set new folder named year-month
             fraction_folder = os.path.join(fractions_folder, dt)
             if not os.path.exists(fraction_folder):
                 os.mkdir(fraction_folder)
 
-            # convert dataset to multiband composite raster and reproject it
-            tmp_s2_cmp = shared.convert_xr_vars_to_raster(da=da)
-            tmp_s2_prj = arcpy.ia.Reproject(tmp_s2_cmp, {'wkid': 32750})
+            # delete previous band fields, extract new ones
+            uav_fractions.extract_xr_to_roi_points(roi_shp=tmp_roi,
+                                                   in_ds=da)
 
-            # save it to scratch (regress will fail otherwise) and read it
-            tmp_exp_vars = os.path.join(arcpy.env.scratchFolder, 'tmp_exp_vars.tif')
-            tmp_s2_prj.save(tmp_exp_vars)
+            # iter each class...
+            frac_ncs = []
+            classes = {'c_0': 'other', 'c_1': 'native', 'c_2': 'weed'}
+            for val, dsc in classes.items():
+                # perform gwr via rois shapefile
+                tmp_gwr_csv = os.path.join(fraction_folder, f'acc_{dsc}.csv')
+                uav_fractions.gwr(in_rois=tmp_roi,
+                                  classvalue=val,
+                                  classdesc=dsc,
+                                  out_prediction_shp='tmp_gwr.shp',
+                                  out_accuracy_csv=tmp_gwr_csv)
 
-            # iter each class for fractional mapping...
-            vals = ['c_0', 'c_1', 'c_2']
-            descs = ['other', 'native', 'weed']
-            for classvalue, classdesc in zip(vals, descs):
+                # force prediction values to 0 - 1
+                uav_fractions.force_pred_zero_to_one(in_shp='tmp_gwr.shp')
 
-                # notify of class currently processing
-                arcpy.AddMessage(f'> Working on class: {classdesc}.')
+                # convert roi points to 5x5m pixels and resample to 2.5m
+                out_frc_tif = os.path.join(fraction_folder, f'{dt}_{dsc}.tif'.replace('-', '_'))
+                uav_fractions.roi_points_to_raster(in_shp='tmp_gwr.shp',
+                                                   out_ras=out_frc_tif)
 
-                # create output regression tif and cmatrix
-                out_fn = f'{dt}_{classvalue}_{classdesc}'.replace('-', '_')
-                out_frc_tif = os.path.join(fraction_folder, 'frac_' + out_fn + '.tif')
+                # create a netcdf version of frac tif
+                tmp_frc_nc = os.path.join(tmp, f'tmp_{dsc}.nc')
+                shared.raster_to_xr(in_ras=out_frc_tif,
+                                    out_nc=tmp_frc_nc,
+                                    epsg=3577,
+                                    datetime=dt + '-' + '01',
+                                    var_names=[dsc],
+                                    dtype='float64')
 
-                # perform regression modelling and prediction
-                ras_reg = uav_fractions.regress(exp_vars=tmp_exp_vars,
-                                                sample_points=tmp_smp,
-                                                classvalue=classvalue,
-                                                classdesc=classdesc)
+                # append netcdf to list
+                frac_ncs.append(tmp_frc_nc)
 
-                # apply cubic resampling to smooth pixels out
-                ras_rsp = arcpy.sa.Resample(raster=ras_reg,
-                                            resampling_type='Cubic',
-                                            input_cellsize=10,
-                                            output_cellsize=2.5)
+            # check we have three fraction netcdfs
+            if len(frac_ncs) != 3:
+                arcpy.AddError('Could not generate all three fraction layers.')
+                return
 
-                # save regression prediction
-                ras_rsp.save(out_frc_tif)
+            # merge three fraction datasets
+            ds_frc = shared.merge_netcdf_files(nc_files=frac_ncs)
 
-            # TODO: combine 3 bands into one netcdf for easier use later
-            # TODO:
-
-            # delete temp comp projected comp
-            del tmp_s2_cmp
-            del tmp_s2_prj
-            del tmp_exp_vars
-            del ras_reg
+            # export fraction dataset
+            ds_frc.to_netcdf(os.path.join(fraction_folder, f'frc_{dt}.nc'))
+            ds_frc.close()
 
             # add successful fractional date to metadata
             meta_item['fractions'].append(dt)
 
+            # increment progressor
+            arcpy.SetProgressorPosition()
+
     except Exception as e:
         arcpy.AddError('Could not generate fractional map. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
+
+    # reset progressor
+    arcpy.ResetProgressor()
+
+    # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region UPDATE NEW FRACTIONAL INFO IN METADATA
@@ -554,25 +533,75 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not write metadata. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region ADD FRACTION LAYERS TO ACTIVE MAP
+
+    arcpy.SetProgressor('default', 'Visualising result...')
+
+    # build visualise folder path and
+    visualise_folder = os.path.join(in_project_folder, 'visualise')
+
+    try:
+        # get full fraction dataset
+        ds_list = []
+        for root, dirs, files in os.walk(fractions_folder):
+            for file in files:
+                if 'frc' in file and file.endswith('.nc'):
+                    ds_list.append(os.path.join(root, file))
+
+        # concatenate all fractional netcdfs by time
+        ds = shared.concat_netcdf_files(nc_files=ds_list)
+
+        # get flight date code
+        flight_date = meta_item['capture_folder']
+
+        # convert to a crf for each fractional variable
+        for var in ds:
+            # export current var
+            tmp_frc_nc = os.path.join(tmp, f'frc_{var}.nc')
+            ds[[var]].to_netcdf(tmp_frc_nc)
+
+            # convert to crf
+            out_crf = os.path.join(visualise_folder, f'frc_{var}_{flight_date}.crf')
+            shared.netcdf_to_crf(in_nc=tmp_frc_nc,
+                                 out_crf=out_crf)
+
+            # add crf to map
+            shared.add_raster_to_map(in_ras=out_crf)
+
+    except Exception as e:
+        arcpy.AddWarning('Could not visualise classified image. See messages.')
+        arcpy.AddMessage(str(e))
+        pass
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region END ENVIRONMENT
 
-    # TODO: enable if move to non-memory temp files
-    # try:
-    #     # drop temp files (free up space)
-    #     arcpy.management.Delete(tmp_comp)
-    #
-    # except Exception as e:
-    #     arcpy.AddWarning('Could not drop temporary files. See messages.')
-    #     arcpy.AddMessage(str(e))
+    arcpy.SetProgressor('default', 'Cleaning up environment...')
 
-    # free up spatial analyst
+    try:
+        # close temp files
+        del tmp_grd
+
+        # close netcdfs
+        ds.close()
+
+    except Exception as e:
+        arcpy.AddWarning('Could not drop temporary files. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # clear temp folder (errors skipped)
+    shared.clear_tmp_folder(tmp_folder=tmp)
+
+    # free up spatial analyst and image analyst
     arcpy.CheckInExtension('Spatial')
-    arcpy.CheckInExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+    arcpy.CheckInExtension('ImageAnalyst')
 
     # set changed env variables back to default
     arcpy.env.overwriteOutput = False
@@ -583,4 +612,4 @@ def execute(
     return
 
 # testing
-execute(None)
+#execute(None)

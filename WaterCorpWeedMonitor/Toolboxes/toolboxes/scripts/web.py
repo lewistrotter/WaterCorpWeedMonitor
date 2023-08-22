@@ -1,14 +1,16 @@
 
 import os
 import datetime
-import shutil
 import requests
 import numpy as np
 import pandas as pd
 import xarray as xr
+import multiprocessing as mp
 import arcpy
 
 from osgeo import gdal
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import as_completed
 
 from scripts import shared
 
@@ -17,6 +19,7 @@ gdal.SetConfigOption('GDAL_HTTP_UNSAFESSL', 'YES')
 gdal.SetConfigOption('CPL_VSIL_CURL_ALLOWED_EXTENSIONS', 'tif')
 gdal.SetConfigOption('GDAL_HTTP_MULTIRANGE', 'YES')
 gdal.SetConfigOption('GDAL_HTTP_MERGE_CONSECUTIVE_RANGES', 'YES')
+gdal.SetConfigOption('GDAL_HTTP_CONNECTTIMEOUT', '30')
 
 
 class Download:
@@ -251,14 +254,14 @@ class Download:
 
         filepath = self.build_output_filepath()
 
-        ds = xr.open_dataset(filepath)  # note: using 'with' has caused issues before, avoiding
+        ds = xr.open_dataset(filepath)
         ds = ds.load()
         ds.close()
 
         ds = shared.fix_xr_attrs(ds=ds,
-                                 out_vars=self.assets,
-                                 out_datetime=self.date,
-                                 out_epsg=self.out_epsg)
+                                 datetime=self.date,
+                                 epsg=self.out_epsg,
+                                 var_names=self.assets)
 
         ds.to_netcdf(filepath)
         ds.close()
@@ -600,6 +603,15 @@ def quick_fetch(
         out_bbox: tuple,
         out_folder: str,
 ) -> list:
+    """
+
+    :param start_date:
+    :param end_date:
+    :param stac_bbox:
+    :param out_bbox:
+    :param out_folder:
+    :return:
+    """
 
     # set dea sentinel 2 collection 3 names
     collections = ['ga_s2am_ard_3', 'ga_s2bm_ard_3']
@@ -686,3 +698,82 @@ def quick_fetch(
             return []
 
     return downloads
+
+
+def quick_download(
+        downloads: list,
+        quality_flags: list,
+        max_out_of_bounds: int = 1,
+        max_invalid_pixels: int = 1,
+        nodata_value: int = -999
+) -> list:
+    """
+    Takes a list of valid downloads captured from DEA STAC and
+    downloads them on seperate threads. Includes a progressor
+    if called from ArcGIS Pro UI.
+
+    :param downloads: List of Download class objects.
+    :param quality_flags: List of OA Mask classes.
+    :param max_out_of_bounds: Max percentage out of bounds allowed.
+    :param max_invalid_pixels: Max percentage out of invalid pixels allowed.
+    :param nodata_value: Output NoData value.
+    :return: List of download results.
+    """
+
+    # set progressor
+    arcpy.SetProgressor('step', 'Downloading Sentinel 2 data...', 0, len(downloads), 1)
+
+    # set relevant download parameters
+    num_cpu = int(np.ceil(mp.cpu_count() / 2))
+
+    try:
+        i = 0
+        results = []
+        with ThreadPoolExecutor(max_workers=num_cpu) as pool:
+            futures = []
+            for download in downloads:
+                task = pool.submit(validate_and_download,
+                                   download,
+                                   quality_flags,
+                                   max_out_of_bounds,
+                                   max_invalid_pixels,
+                                   nodata_value)
+                futures.append(task)
+
+            for future in as_completed(futures):
+                arcpy.AddMessage(future.result())
+                results.append(future.result())
+
+                i += 1
+                if i % 1 == 0:
+                    arcpy.SetProgressorPosition(i)
+
+    except Exception as e:
+        raise e
+
+    return results
+
+
+def delete_error_downloads(
+    results: list,
+    nc_folder: str
+) -> None:
+
+    # get list of all netcdf download errors
+    errors = [d for d in results if 'error' in d]
+
+    # when error(s)...
+    if len(errors) > 0:
+        # prepare error netcdf file paths
+        errors = [d.split(' ')[1] for d in errors]
+        errors = [d.replace(':', '') for d in errors]
+        errors = [f'R{d}.nc' for d in errors]
+
+        # iter each error nc and delete it
+        for error in errors:
+            try:
+                os.remove(os.path.join(nc_folder, error))
+            except:
+                pass
+
+    return

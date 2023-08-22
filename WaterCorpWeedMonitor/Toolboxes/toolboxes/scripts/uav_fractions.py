@@ -5,236 +5,379 @@ import pandas as pd
 import xarray as xr
 import arcpy
 
-def build_rois_from_raster(
-        in_ras: arcpy.Raster,
-        out_rois: str
-) -> str:
-    """
-    Takes an ArcPy Raster class object and builds regions of interest polygons
-    from its pixels extents. Basically, the rois are the centroid point of each
-    pixel with a square buffer of the pixel size in x and y dimensions. The
-    output is a path to the shapefile of rois. This also creates three fields
-    for classes 0-2.
+from scipy.stats import zscore
 
-    :param in_ras: ArcPy Raster.
-    :param out_rois: String to region of interest shapefile path.
-    :return: String to region of interest shapefile path.
+from scripts import shared
+
+
+def remove_xr_outliers(
+        ds: xr.Dataset,
+        max_z_value: float
+) -> xr.Dataset:
+    """
+    Takes a raw multiband xarray dataset and calculates outliers based
+    on z-score. If any band has an outlier, the all bands for that
+    pixel are set to nan. This is done per date in dataset.
+
+    :param ds: Xarray Dataset with multiple raw bands.
+    :param max_z_value: Maximum z-score value allowed.
+    :return: Outlier-free Xarray Dataset.
     """
 
     try:
-        # get a centroid point for each grid cell on sentinel raster
-        tmp_pnts = r'memory\tmp_points'
-        arcpy.conversion.RasterToPoint(in_raster=in_ras,
-                                       out_point_features=tmp_pnts,
-                                       raster_field='Value')
+        # apply zscore per pixel across whole time series (0 is time dim)
+        z_mask = xr.apply_ufunc(zscore, ds, 0)
 
-        # create square polygons around points
-        arcpy.analysis.GraphicBuffer(in_features=tmp_pnts,
-                                     out_feature_class=out_rois,
-                                     buffer_distance_or_field='5 Meters')  # half s2 cell size
+        # flag any outlier occurrences as true if > z-score
+        z_mask = np.abs(z_mask) > max_z_value
 
-        # add required fields to envelope shapefile
-        arcpy.management.AddFields(in_table=out_rois,
-                                   field_description="c_0 FLOAT;c_1 FLOAT;c_2 FLOAT;inc SHORT")
+        # set pixel to nan when any band variable is outlier true
+        z_mask = z_mask.to_array().max('variable')
+
+        # set pixels to nan where outlier detected
+        ds = ds.where(~z_mask)
 
     except Exception as e:
         raise e
 
-    return out_rois
+    return ds
 
 
-def calculate_roi_freqs(
-        rois: str,
-        da_hr: xr.DataArray
-) -> str:
+def resample_xr_monthly_medians(
+        ds: xr.Dataset
+) -> xr.Dataset:
     """
-    Takes pre-created region of interest polygons and overlaps them with the pixels
-    of a high resolution xarray DataArray. The frequency of all DataArray pixel classes
-    falling within reach region of interest is added to the regoin of interest attrobute
-    table as seperate fields.
+    Takes a xarray Dataset and resamples it to
+    monthly medians. It then interpolates missing
+    values.
 
-    :param rois: Path to region of interest shapefile.
-    :param da_hr: A high-resolution classified raster as a xarray DataArray.
-    :return: Path to output region of interest shapefile.
+    :param ds: Raw xarray Dataset.
+    :return: Monthly median xarray Dataset.
     """
 
     try:
-        # extract all high-res class values within each low res pixel
-        with arcpy.da.UpdateCursor(rois, ['c_0', 'c_1', 'c_2', 'inc', 'SHAPE@']) as cursor:
-            for row in cursor:
-                # get x and y window by slices for each polygon
-                x_slice = slice(row[-1].extent.XMin, row[-1].extent.XMax)
-                y_slice = slice(row[-1].extent.YMax, row[-1].extent.YMin)
+        # resample to monthly medians
+        ds = ds.resample(time='1MS').median('time')
 
-                # extract window values from high-res
+        # interpolate nan
+        ds = ds.interpolate_na('time')
+
+    except Exception as e:
+        raise e
+
+    return ds
+
+
+def create_roi_freq_points(
+        da_hr: xr.DataArray,
+        ds_lr: xr.Dataset,
+        out_shp: str
+) -> str:
+    """
+
+    :param da_hr:
+    :param ds_lr:
+    :param out_shp:
+    :return:
+    """
+
+    # check input is high-res is 2d
+    if len(da_hr.shape) != 2:
+        raise ValueError('High-resolution xr can only be 2D.')
+
+    try:
+        # extract raw x, y arrays
+        xs = ds_lr['x'].values
+        ys = ds_lr['y'].values
+
+        # get mean x, y pixel sizes
+        x_res = np.mean(np.diff(xs)) / 2
+        y_res = np.mean(np.diff(ys)) / 2
+
+        i = 0
+        rows = []
+        for x in xs:
+            for y in ys:
+                # build pixel-sized window
+                x_slice = slice(x - x_res, x + x_res)
+                y_slice = slice(y - y_res, y + y_res)
+
+                # extract high-res values within window
                 arr = da_hr.sel(x=x_slice, y=y_slice).values
-
-                # FIXME: something not working here, 1 pixel coming back?
 
                 # if values exist...
                 if arr.size != 0 and ~np.all(arr == -999):
-                    # flatten array and remove -999s
+                    # flatten array
                     arr = arr.flatten()
-                    arr = arr[arr != -999]
 
-                    # get num classes/counts in win, prepare labels, calc freq
-                    classes, counts = np.unique(arr, return_counts=True)
-                    classes = [f'c_{c}' for c in classes]
-                    freqs = (counts / np.sum(counts)).astype('float16')
+                    # extract nodata values, proceed if < 25% nans
+                    nans = arr[arr == -999]
+                    if len(nans) / len(arr) < 0.25:
+                        # remove nans
+                        arr = arr[arr != -999]
 
-                    # init fraction map
-                    class_map = {
-                        'c_0': 0.0,
-                        'c_1': 0.0,
-                        'c_2': 0.0,
-                        'inc': 1
-                    }
+                        # get num classes/counts in win, prepare labels, calc freq
+                        classes, counts = np.unique(arr, return_counts=True)
+                        classes = [f'c_{c}' for c in classes]
+                        freqs = (counts / np.sum(counts)).astype('float16')
 
-                    # project existing classes and freqs onto map and update row
-                    class_map.update(dict(zip(classes, freqs)))
-                    row[0:4] = list(class_map.values())
-                else:
-                    # flag row to be excluded
-                    row[3] = 0
+                        # init fraction map
+                        class_map = {
+                            'c_0': 0.0,
+                            'c_1': 0.0,
+                            'c_2': 0.0
+                        }
 
-                # update row
+                        # update existing map with new freqs
+                        class_map.update(dict(zip(classes, freqs)))
+
+                        # add rid and x, y to dict
+                        class_map['rid'] = i
+                        class_map['xy'] = (x, y)
+
+                        # add to list
+                        rows.append(class_map)
+
+                        # increment
+                        i += 1
+
+    except Exception as e:
+        raise e
+
+    # check if anything came back
+    if len(rows) == 0:
+        raise ValueError('Could not extract any high-res pixels.')
+
+    try:
+        # get folder and file name
+        out_folder = os.path.dirname(out_shp)
+        out_file = os.path.basename(out_shp)
+
+        # create new empty roi shapefile
+        out_srs = arcpy.SpatialReference(3577)
+        arcpy.management.CreateFeatureclass(out_path=out_folder,
+                                            out_name=out_file,
+                                            geometry_type='POINT',
+                                            spatial_reference=out_srs)
+
+        # add required class and other fields
+        arcpy.management.AddFields(in_table=out_shp,
+                                   field_description='rid LONG;c_0 FLOAT;c_1 FLOAT;c_2 FLOAT')
+
+        # populate shapefile with field values
+        fields = ['rid', 'c_0', 'c_1', 'c_2', 'SHAPE@XY']
+        with arcpy.da.InsertCursor(in_table=out_shp, field_names=fields) as cursor:
+            for row in rows:
+                # unpack values
+                rid = row['rid']
+                c_0 = row['c_0']
+                c_1 = row['c_1']
+                c_2 = row['c_2']
+                xy = row['xy']
+
+                # insert into shapefile
+                cursor.insertRow([rid, c_0, c_1, c_2, xy])
+
+    except Exception as e:
+        raise e
+
+    return out_shp
+
+
+def extract_xr_to_roi_points(
+        roi_shp: str,
+        in_ds: xr.Dataset
+) -> str:
+
+    # check if ds time dimension valid
+    if 'time' not in in_ds:
+        raise ValueError('Dataset needs time dimension.')
+
+    # create name map
+    band_map = {
+        'nbart_blue': 'blue',
+        'nbart_green': 'green',
+        'nbart_red': 'red',
+        'nbart_red_edge_1': 'redge_1',
+        'nbart_red_edge_2': 'redge_2',
+        'nbart_red_edge_3': 'redge_3',
+        'nbart_nir_1': 'nir_1',
+        'nbart_nir_2': 'nir_2',
+        'nbart_swir_2': 'swir_2',
+        'nbart_swir_3': 'swir_3'
+    }
+
+    try:
+        # create xr copy and rename bands
+        ds = in_ds.copy(deep=True)
+        ds = ds.rename(band_map)
+
+        # remove all roi shapefile fields except required
+        keep_fields = ['rid', 'c_0', 'c_1', 'c_2']
+        arcpy.management.DeleteField(in_table=roi_shp,
+                                     drop_field=keep_fields,
+                                     method='KEEP_FIELDS')
+
+        # prepare fields and types
+        fields = ';'.join([f'{band} FLOAT' for band in list(band_map.values())])
+        arcpy.management.AddFields(in_table=roi_shp,
+                                   field_description=fields)
+
+        # iterate each row  # TODO: make this safe
+        fields = list(band_map.values()) + ['SHAPE@XY']
+        with arcpy.da.UpdateCursor(roi_shp, fields) as cursor:
+            for row in cursor:
+                # extract x, y of point
+                x, y = row[-1]
+
+                # get the closest pixel within 50 cm
+                arr = ds.sel(x=x, y=y, method='nearest', tolerance=0.5)
+                vals = arr.to_array().data
+
+                # move band values to row band fields, update
+                row[:-1] = vals
                 cursor.updateRow(row)
 
     except Exception as e:
         raise e
 
-    return rois
+    return roi_shp
 
 
-def convert_rois_to_rasters(
-        rois: str,
-        out_folder: str
-) -> tuple[str, str, str]:
-    """
-    Takes a filled in region of interest shapefile and
-    converts each fraction class within (0-2) to seperate
-    fraction rasters for use in regression model.
-
-    :param rois:
-    :return:
-    """
-
-    try:
-        # convert other class (c_) rois to a raster
-        out_c_0 = os.path.join(out_folder, 'roi_frac_c_0.tif')
-        arcpy.conversion.PolygonToRaster(in_features=rois,
-                                         value_field='c_0',
-                                         out_rasterdataset=out_c_0,
-                                         cellsize=10)
-
-        # convert native class (c_1) rois to a raster
-        out_c_1 = os.path.join(out_folder, 'roi_frac_c_1.tif')
-        arcpy.conversion.PolygonToRaster(in_features=rois,
-                                         value_field='c_1',
-                                         out_rasterdataset=out_c_1,
-                                         cellsize=10)
-
-        # convert weed class (c_2) rois to a raster
-        out_c_2 = os.path.join(out_folder, 'roi_frac_c_2.tif')
-        arcpy.conversion.PolygonToRaster(in_features=rois,
-                                         value_field='c_2',
-                                         out_rasterdataset=out_c_2,
-                                         cellsize=10)
-
-    except Exception as e:
-        raise e
-
-    return out_c_0, out_c_1, out_c_2
-
-
-def regress(
-        exp_vars: str,
-        sample_points: str,
+def gwr(
+        in_rois: str,
         classvalue: str,
         classdesc: str,
-) -> arcpy.Raster:
+        out_prediction_shp: str,
+        out_accuracy_csv: str
+) -> str:
     """
 
-    :param exp_vars:
-    :param pnts:
+    :param in_rois:
     :param classvalue:
     :param classdesc:
+    :param out_prediction_shp:
+    :param out_accuracy_csv:
     :return:
     """
 
+    # create expected list of fields
+    data_vars = [
+        'blue',
+        'green',
+        'red',
+        'redge_1',
+        'redge_2',
+        'redge_3',
+        'nir_1',
+        'nir_2',
+        'swir_2',
+        'swir_3'
+    ]
+
+    # get band field names from shapefile
+    fields = [f.name for f in arcpy.ListFields(in_rois)]
+
+    # check if we have all vars in shapefile
+    for var in data_vars:
+        if var not in fields:
+            raise ValueError('Missing expected band.')
+
     try:
-        # train regression model for current target raster
-        tmp_ecd = os.path.join(arcpy.env.scratchFolder, f'ecd_{classvalue}.ecd')
-        arcpy.ia.TrainRandomTreesRegressionModel(in_rasters=exp_vars,
-                                                 in_target_data=sample_points,
-                                                 out_regression_definition=tmp_ecd,
-                                                 target_value_field=classvalue,
-                                                 max_num_trees=250,
-                                                 max_tree_depth=50,
-                                                 max_samples=-1,
-                                                 percent_testing=20)
-
-        # predict using trained model ecd file
-        ras_reg = arcpy.ia.PredictUsingRegressionModel(in_rasters=exp_vars,
-                                                       in_regression_definition=tmp_ecd)
-
-        # read ecd file (it is just a json file)
-        df = pd.read_json(tmp_ecd)
-
-        # prepare regression r2 metrics and notify
-        r2_train = round(df['Definitions'][0]['Train R2 at train locations'], 2)
-        r2_valid = round(df['Definitions'][0]['Test R2 at train locations'], 2)
-        arcpy.AddMessage(f'  - R2 Train: {str(r2_train)} / Validation: {str(r2_valid)}')
-
-        # prepare error r2 metrics and notify
-        er_train = round(df['Definitions'][0]['Train Error at train locations'], 2)
-        er_valid = round(df['Definitions'][0]['Test Error at train locations'], 2)
-        arcpy.AddMessage(f'  - Error Train: {str(er_train)} / Validation: {str(er_valid)}')
+        # TODO: need to implement fall back for lack of variation
+        # TODO: we can run into situation where not enough variation in a class (e.g. weeds). Will crash.
+        # TODO: So, set to nearest neighours method and golden search but set the weight thing from bivariate
+        # TODO: to gaussian - this fixes the issue.
+        # perform geographically weighted regression
+        arcpy.stats.GWR(in_features=in_rois,
+                        dependent_variable=classvalue,
+                        model_type='CONTINUOUS',
+                        explanatory_variables=data_vars,
+                        output_features=out_prediction_shp,
+                        neighborhood_type='DISTANCE_BAND',
+                        neighborhood_selection_method='GOLDEN_SEARCH')
 
     except Exception as e:
         raise e
 
-    return ras_reg
+    try:
+        # convert table to arr
+        fields = [classvalue, 'PREDICTED']
+        arr = arcpy.da.FeatureClassToNumPyArray(out_prediction_shp, fields)
+
+        # extract real (x) and predicted (y) values
+        x, y = arr[classvalue], arr['PREDICTED']
+        r2 = 1 - np.sum((y - x) ** 2) / np.sum((x - np.mean(x)) ** 2)
+        r2 = round(r2, 4)
+
+        # delete arr
+        arr = None
+
+        # notify user
+        arcpy.AddMessage(f'> R-Squared for {classdesc}: {str(r2)}')
+
+        # build dataframe and export as csv
+        df = pd.DataFrame([r2], columns=['R2'])
+        df.to_csv(out_accuracy_csv)
+
+    except:
+        raise ValueError('Could not read accuracy messages.')
+        pass
+
+    return out_prediction_shp
 
 
-def regress_deprecated(
-        in_rois: str,
-        in_classvalue: str,
-        in_class_desc: str,
-        in_exp_vars: list,
-        out_regress_tif: str,
-        out_cmatrix_csv: str,
-) -> None:
+def force_pred_zero_to_one(
+        in_shp: str
+) -> str:
+    """
 
-    # convert csv to dbf for function
-    out_cmatrix_dbf = os.path.splitext(out_cmatrix_csv)[0] + '.dbf'
+    :param in_shp:
+    :return:
+    """
 
-    # perform regression
-    # FIXME: this fails if we run via PyCharm - works ok via toolbox... threading?
-    arcpy.stats.Forest(prediction_type='PREDICT_RASTER',
-                       in_features=in_rois,
-                       variable_predict=in_classvalue,
-                       explanatory_rasters=in_exp_vars,
-                       output_raster=out_regress_tif,
-                       explanatory_rasters_matching=in_exp_vars,
-                       number_of_trees=100,
-                       percentage_for_training=25,
-                       number_validation_runs=5,
-                       output_validation_table=out_cmatrix_dbf)
+    try:
+        fields = ['PREDICTED']
+        with arcpy.da.UpdateCursor(in_shp, fields) as cursor:
+            for row in cursor:
+                if row[0] < 0.0:
+                    row[0] = 0.0
+                elif row[0] > 1.0:
+                    row[0] = 1.0
 
-    # create output confususion matrix as a csv
-    #out_cmx_fn = f'cm_{dt}_{classvalue}_{class_desc}.csv'.replace('-', '_')
-    #out_cmx_csv = os.path.join(fraction_folder, out_cmx_fn)
+                cursor.updateRow(row)
 
-    # convert dbf to csv
-    arcpy.conversion.ExportTable(in_table=out_cmatrix_dbf,
-                                 out_table=out_cmatrix_csv)
+    except Exception as e:
+        raise e
 
-    # delete dbf
-    arcpy.management.Delete(out_cmatrix_dbf)
+    return in_shp
 
-    # read csv with pandas and get average r-squares
-    avg_r2 = pd.read_csv(out_cmatrix_csv)['R2'].mean().round(3)
-    arcpy.AddMessage(f'> Average R2 for {in_classvalue} ({in_class_desc}): {str(avg_r2)}')
 
-    return
+def roi_points_to_raster(
+        in_shp: str,
+        out_ras: str
+) -> str:
+    """
+
+    :param in_shp:
+    :param out_ras:
+    :return:
+    """
+
+    try:
+        # convert prediction values at points to raster
+        arcpy.conversion.PointToRaster(in_features=in_shp,
+                                       value_field='PREDICTED',
+                                       out_rasterdataset='tmp_gwr_ras.tif',
+                                       cellsize=10.0)
+
+        # apply cubic resampling to smooth pixels out
+        arcpy.management.Resample(in_raster='tmp_gwr_ras.tif',
+                                  out_raster=out_ras,
+                                  cell_size=2.5,
+                                  resampling_type='BILINEAR')
+
+    except Exception as e:
+        raise e
+
+    return out_ras

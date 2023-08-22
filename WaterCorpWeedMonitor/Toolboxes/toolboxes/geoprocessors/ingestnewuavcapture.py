@@ -7,6 +7,7 @@ def execute(
 
     import os
     import json
+    import datetime
     import arcpy
 
     from scripts import shared
@@ -45,6 +46,11 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing environment...')
 
+    # check if advanced license is available
+    if arcpy.CheckProduct('ArcInfo') not in ['AlreadyInitialized', 'Available']:
+        arcpy.AddError('Advanced ArcGIS Pro license is unavailable.')
+        return
+
     # check if user has spatial/image analyst, error if not
     if arcpy.CheckExtension('Spatial') != 'Available':
         arcpy.AddError('Spatial Analyst license is unavailable.')
@@ -76,7 +82,7 @@ def execute(
     in_project_folder = os.path.dirname(in_project_file)
 
     # check if required project folders already exist, error if so
-    sub_folders = ['grid', 'uav_captures', 'sat_captures', 'visualise']
+    sub_folders = ['boundary', 'grid', 'uav_captures', 'sat_captures', 'visualise']
     for sub_folder in sub_folders:
         sub_folder = os.path.join(in_project_folder, sub_folder)
         if not os.path.exists(sub_folder):
@@ -88,6 +94,24 @@ def execute(
     if not os.path.exists(grid_tif):
         arcpy.AddError('Project grid file does not exist.')
         return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region CREATE AND SET WORKSPACE TO TEMPORARY FOLDER
+
+    arcpy.SetProgressor('default', 'Preparing workspace...')
+
+    # create temp folder if does not already exist
+    tmp = os.path.join(in_project_folder, 'tmp')
+    if not os.path.exists(tmp):
+        os.mkdir(tmp)
+
+    # clear temp folder (errors skipped)
+    shared.clear_tmp_folder(tmp_folder=tmp)
+
+    # set temp folder to arcpy workspace
+    arcpy.env.workspace = tmp
 
     # endregion
 
@@ -146,11 +170,20 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing clean band composite...')
 
+    # temporarily disable pyramids to speed things up
+    arcpy.env.pyramid = 'NONE'
+
     try:
-        # read raster, composite, reproject (wgs84 utm zone 50s), resample to grid size
-        tmp_cmp = arcpy.sa.CompositeBand(list(new_band_map.values()))
-        tmp_prj = arcpy.ia.Reproject(tmp_cmp, {'wkid': 32750})
-        tmp_rsp = arcpy.sa.Resample(tmp_prj, 'Bilinear', None, 0.05)
+        # read raster as a composite
+        arcpy.management.CompositeBands(in_rasters=list(new_band_map.values()),
+                                        out_raster='tmp_cmp.tif')
+
+        # reproject it to gda 1994 albers using geoprocessor (ia has shift issue)
+        arcpy.management.ProjectRaster(in_raster='tmp_cmp.tif',
+                                       out_raster='tmp_rsp.tif',
+                                       out_coor_system=arcpy.SpatialReference(3577),
+                                       resampling_type='BILINEAR',
+                                       cell_size='0.05 0.05')
 
     except Exception as e:
         arcpy.AddError('Could not prepare bands. See messages.')
@@ -193,19 +226,22 @@ def execute(
 
     try:
         # create composite of baseline bands in order of map
-        tmp_base_cmp = arcpy.sa.CompositeBand(base_bands)
+        arcpy.management.CompositeBands(in_rasters=base_bands,
+                                        out_raster='tmp_cmp.tif')
 
-        # register new raster to baseline raster, should update in memory
-        arcpy.management.RegisterRaster(in_raster=tmp_rsp,
+        # register new raster to baseline raster
+        arcpy.management.RegisterRaster(in_raster='tmp_rsp.tif',
                                         register_mode='REGISTER',
-                                        reference_raster=tmp_base_cmp,
+                                        reference_raster='tmp_cmp.tif',
                                         transformation_type='POLYORDER0')
-        # TODO: if time available, see if can improve - same image comes in slightly shifted
 
     except Exception as e:
         arcpy.AddError('Could not register new capture data to baseline. See messages.')
         arcpy.AddMessage(str(e))
         return
+
+    # set pyramids back to default
+    arcpy.env.pyramid = None
 
     # endregion
 
@@ -246,8 +282,11 @@ def execute(
         # read uav grid in as raster
         tmp_grd = arcpy.Raster(grid_tif)
 
+        # read resample raster
+        tmp_rsp = arcpy.Raster('tmp_rsp.tif')
+
         # set up step-wise progressor
-        arcpy.SetProgressor('step', 'Conforming and exporting clean UAV bands...', 0, len(new_band_map))
+        arcpy.SetProgressor('step', None, 0, len(new_band_map))
 
         # iter over each band in new raster with name...
         for name, band in zip(list(new_band_map.keys()), tmp_rsp.getRasterBands()):
@@ -300,6 +339,8 @@ def execute(
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region ADD RGB COMPOSITE TO ACTIVE MAP
 
+    arcpy.SetProgressor('default', 'Visualising result...')
+
     # build visualise folder path and
     visualise_folder = os.path.join(in_project_folder, 'visualise')
 
@@ -329,18 +370,20 @@ def execute(
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region END ENVIRONMENT
 
+    arcpy.SetProgressor('default', 'Cleaning up environment...')
+
     try:
         # close temp files
-        del tmp_cmp
-        del tmp_prj
         del tmp_rsp
-        del tmp_base_cmp
         del tmp_rgb
 
     except Exception as e:
         arcpy.AddWarning('Could not drop temporary files. See messages.')
         arcpy.AddMessage(str(e))
         pass
+
+    # clear temp folder (errors skipped)
+    shared.clear_tmp_folder(tmp_folder=tmp)
 
     # free up spatial analyst
     arcpy.CheckInExtension('Spatial')
