@@ -1,3 +1,4 @@
+
 def execute(
         parameters
 ):
@@ -5,14 +6,10 @@ def execute(
     # region IMPORTS
 
     import os
-    import numpy as np
-    import multiprocessing as mp
+    import shutil
     import arcpy
 
-    from concurrent.futures import ThreadPoolExecutor
-    from concurrent.futures import as_completed
-
-    from scripts import web, shared
+    from scripts import tests, web, shared
 
     # set data overwrites and mapping
     arcpy.env.overwriteOutput = True
@@ -24,257 +21,227 @@ def execute(
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    in_out_folder = parameters[0].valueAsText
+    #in_folder = parameters[0].valueAsText
 
     # inputs for testing only
-    #in_out_folder = r'C:\Users\Lewis\Desktop\working'
+    in_folder = r'D:\Work\Curtin\Water Corp Project - General\Testing\Test data'
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region CHECK SPATIAL ANALYST WORKS
+    # region CHECK DATA FOLDER CORRECT
 
-    arcpy.SetProgressor('default', 'Checking spatial analyst extension...')
+    arcpy.SetProgressor('default', 'Checking test data folder...')
 
-    # check if user has spatial/image analyst, error if not
-    if arcpy.CheckExtension('Spatial') != 'Available':
-        arcpy.AddError('Spatial Analyst license is unavailable.')
-        pass
+    # check if input test folder exists
+    if not os.path.exists(in_folder):
+        arcpy.AddError('Test data folder does not exist.')
+        return
 
-    try:
-        # try check out
-        arcpy.CheckOutExtension('Spatial')
+    # create test areas folders
+    cb_folder = os.path.join(in_folder, 'city_beach')
 
-    except Exception as e:
-        arcpy.AddError('Spatial Analyst could not be checked out.')
-        arcpy.AddMessage(str(e))
-        pass
+    # check if it contains three folders
+    folders = [cb_folder]
+    for folder in folders:
+        if not os.path.exists(in_folder):
+            arcpy.AddError(f'Test data folder does not exist: {folder}.')
+            return
 
-    try:
-        # create extent (city beach)
-        srs = arcpy.SpatialReference(32750)
-        ext = arcpy.Extent(XMin=382371.76,
-                           YMin=6466469.15,
-                           XMax=382983.01,
-                           YMax=6467053.82,
-                           spatial_reference=srs)
+    # create input folder
+    in_folder = os.path.join(cb_folder, 'inputs')
 
-        # create raster of 1s
-        tmp_raster = arcpy.sa.CreateConstantRaster(constant_value=1,
-                                                   data_type='INTEGER',
-                                                   cell_size=5,
-                                                   extent=ext)
-
-        # save it
-        tmp_raster.save(os.path.join(in_out_folder, 'rand_raster.tif'))
-
-    except Exception as e:
-        arcpy.AddError('Spatial Analyst Resample tool could not run. See messages.')
-        arcpy.AddMessage(str(e))
-        pass
+    # create project folder
+    project_folder = os.path.join(cb_folder, 'project')
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region CHECK IMAGE ANALYST WORKS
+    # region CHECK LICENSES
 
-    arcpy.SetProgressor('default', 'Checking image analyst extension...')
-
-    # check if user has spatial/image analyst, error if not
-    if arcpy.CheckExtension('ImageAnalyst') != 'Available':
-        arcpy.AddError('Image Analyst license is unavailable.')
-        return
+    arcpy.SetProgressor('default', 'Checking licenses...')
 
     try:
-        # try check out
-        arcpy.CheckOutExtension('ImageAnalyst')
+        # test if advanced license can be obtained
+        tests.test_license()
+        arcpy.AddMessage('Licenses passed test.')
 
     except Exception as e:
-        arcpy.AddError('Image Analyst could not be checked out.')
+        arcpy.AddError('Licenses failed test. See messages.')
         arcpy.AddMessage(str(e))
-        pass
-
-    try:
-        # create extent (city beach)
-        srs = arcpy.SpatialReference(32750)
-        ext = arcpy.Extent(XMin=382371.76,
-                           YMin=6466469.15,
-                           XMax=382983.01,
-                           YMax=6467053.82,
-                           spatial_reference=srs)
-
-        # create raster of 1s
-        tmp_raster = arcpy.sa.CreateConstantRaster(constant_value=1,
-                                                   data_type='INTEGER',
-                                                   cell_size=5,
-                                                   extent=ext)
-
-        # resample it raster of 1s
-        tmp_resample = arcpy.ia.Resample(raster=tmp_raster,
-                                         resampling_type='Cubic',
-                                         output_cellsize=10)
-
-        # save it
-        tmp_resample.save(os.path.join(in_out_folder, 'rand_raster_rs.tif'))
-
-    except Exception as e:
-        arcpy.AddError('Spatial Analyst Resample tool could not run. See messages.')
-        arcpy.AddMessage(str(e))
-        pass
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region TEST DEA STAC SENTINEL 2 DOWNLOADS
+    # region CHECK EXTENSIONS
 
-    arcpy.SetProgressor('default', 'Testing Digital Earth Australia servers...')
-
-    # set sentinel 2 data date range
-    start_date, end_date = '2020-01-01', '2021-12-31'
-
-    # set dea sentinel 2 collection 3 names
-    collections = [
-        'ga_s2am_ard_3',
-        'ga_s2bm_ard_3'
-    ]
-
-    # get bounding box in wgs84 for stac query
-    stac_bbox = (115.756098001898, -31.9317218134778, 115.761672256462, -31.9263899178077)
-    if len(stac_bbox) != 4:
-        arcpy.AddError('Could not generate STAC bounding box.')
-        return
+    arcpy.SetProgressor('default', 'Checking extensions...')
 
     try:
-        # get all stac features from 2017 to now
-        stac_features = web.fetch_all_stac_features(collections=collections,
-                                                    start_date=start_date,
-                                                    end_date=end_date,
-                                                    bbox=stac_bbox,
-                                                    limit=100)
+        # test if spatial/image analyst extensions can be obtained
+        tests.test_extensions()
+        arcpy.AddMessage('Extensions passed test.')
 
     except Exception as e:
+        arcpy.AddError('Extensions failed test. See messages.')
         arcpy.AddMessage(str(e))
-        arcpy.AddError('Unable to fetch STAC features. See messages.')
-        return
-
-    # check if anything came back, warning if not
-    if len(stac_features) == 0:
-        arcpy.AddWarning('No STAC Sentinel 2 scenes were found.')
-        return []
-
-    # set desired sentinel 2 bands
-    assets = [
-        'nbart_blue',
-        'nbart_green',
-        'nbart_red',
-        'nbart_red_edge_1',
-        'nbart_red_edge_2',
-        'nbart_red_edge_3',
-        'nbart_nir_1',
-        'nbart_nir_2',
-        'nbart_swir_2',
-        'nbart_swir_3'
-    ]
-
-    # get bounding box in wgs84 for stac query
-    out_bbox = (-1518267.7245241, -3576309.07183537, -1517647.20134446, -3575715.52792441)
-    if len(out_bbox) != 4:
-        arcpy.AddError('Could not generate output bounding box.')
-        return
-
-    # add 30 metres on every side to prevent gaps
-    out_bbox = shared.expand_bbox(bbox=out_bbox, metres=30)
-
-    # set raw output nc folder (one nc per date)
-    raw_ncs_folder = os.path.join(in_out_folder, 'raw_ncs')
-    if not os.path.exists(raw_ncs_folder):
-        os.mkdir(raw_ncs_folder)
-
-    try:
-        # prepare downloads from raw stac features
-        downloads = web.convert_stac_features_to_downloads(features=stac_features,
-                                                           assets=assets,
-                                                           out_bbox=out_bbox,
-                                                           out_epsg=3577,
-                                                           out_res=10,
-                                                           out_path=raw_ncs_folder,
-                                                           out_extension='.nc')
-
-    except Exception as e:
-        arcpy.AddError('Unable to convert STAC features to downloads. See messages.')
-        arcpy.AddMessage(str(e))
-        return
-
-    # group downloads captured on same solar day
-    downloads = web.group_downloads_by_solar_day(downloads=downloads)
-    if len(downloads) == 0:
-        arcpy.AddWarning('No valid downloads were found.')
-        return []
-
-    # remove downloads if current month (we want complete months)
-    downloads = web.remove_downloads_for_current_month(downloads)
-    if len(downloads) == 0:
-        arcpy.AddWarning('Not enough downloads in current month exist yet.')
-        return []
-
-    # get existing netcdfs and convert to dates
-    exist_dates = []
-    for file in os.listdir(raw_ncs_folder):
-        if file != 'monthly_meds.nc' and file.endswith('.nc'):
-            file = file.replace('R', '').replace('.nc', '')
-            exist_dates.append(file)
-
-    # remove downloads that already exist in sat folder
-    if len(exist_dates) > 0:
-        downloads = web.remove_existing_downloads(downloads, exist_dates)
-
-        # if nothing left, leave
-        if len(downloads) == 0:
-            arcpy.AddWarning('No new satellite downloads were found.')
-            return []
-
-
-    arcpy.SetProgressor('step', 'Downloading Sentinel 2 data...', 0, len(downloads), 1)
-
-    # set relevant download parameters
-    num_cpu = int(np.ceil(mp.cpu_count() / 2))
-
-    try:
-        i = 0
-        results = []
-        with ThreadPoolExecutor(max_workers=num_cpu) as pool:
-            futures = []
-            for download in downloads:
-                task = pool.submit(web.validate_and_download,
-                                   download,
-                                   [1],   # quality_flags,
-                                   1,     # max_out_of_bounds,
-                                   0,     # max_invalid_pixels,
-                                   -999)  # nodata_value
-                futures.append(task)
-
-            for future in as_completed(futures):
-                arcpy.AddMessage(future.result())
-                results.append(future.result())
-
-                i += 1
-                if i % 1 == 0:
-                    arcpy.SetProgressorPosition(i)
-
-    except Exception as e:
-        arcpy.AddError('Unable to download Sentinel 2 data from DEA. See messages.')
-        arcpy.AddMessage(str(e))
-        return
-
-    # check if any valid downloads (non-cloud or new)
-    num_valid_downlaods = len([dl for dl in results if 'success' in dl])
-    if num_valid_downlaods == 0:
-        arcpy.AddMessage('No new valid satellite downloads were found.')
-        return
 
     # endregion
 
-    return
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region CHECK WEB ACCESS
+
+    arcpy.SetProgressor('default', 'Checking web access...')
+
+    # create temp folder if doesnt exist
+    tmp_folder = os.path.join(cb_folder, 'tmp')
+    if not os.path.exists(tmp_folder):
+        os.mkdir(tmp_folder)
+
+    try:
+        # test if dea can be reached and s2 data cant be obtained
+        tests.test_web(tmp_folder)
+        arcpy.AddMessage('Web access passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Web access failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN CREATE NEW SITE TOOL
+
+    arcpy.SetProgressor('default', 'Checking create new site tool...')
+
+    try:
+        # delete project folder if already exists
+        shutil.rmtree(project_folder)
+
+    except Exception as e:
+        arcpy.AddError('Could not delete previous project folder. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # recreate it
+    os.mkdir(project_folder)
+
+    try:
+        # test if dea can be reached and s2 data cant be obtained
+        tests.test_createnewsite(in_folder, project_folder)
+        arcpy.AddMessage('Create new site tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Create new site tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN INGEST NEW UAV CAPTURE TOOL
+
+    arcpy.SetProgressor('default', 'Checking ingest new UAV capture tool...')
+
+    try:
+        tests.test_ingestnewuavcapture(in_folder, project_folder)
+        arcpy.AddMessage('Ingest new UAV capture tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Ingest new UAV capture tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN CLASSIFY UAV CAPTURE TOOL (ONE)
+
+    arcpy.SetProgressor('default', 'Checking classify UAV capture tool (one)...')
+
+    try:
+        in_date = '2022-02-02 10:30:15'
+        tests.test_classifyuavcapture(in_folder, in_date, project_folder)
+        arcpy.AddMessage('Classify UAV capture tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Classify UAV capture tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN CLASSIFY UAV CAPTURE TOOL (TWO)
+
+    arcpy.SetProgressor('default', 'Checking classify UAV capture tool (two)...')
+
+    try:
+        in_date = '2023-02-02 10:30:15'
+        tests.test_classifyuavcapture(in_folder, in_date, project_folder)
+        arcpy.AddMessage('Classify UAV capture tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Classify UAV capture tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN GENERATE FRACTIONS TOOL
+
+    arcpy.SetProgressor('default', 'Checking generate fractions tool...')
+
+    try:
+        tests.test_generatefractions(in_folder, project_folder)
+        arcpy.AddMessage('Generate Fractions tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Generate Fractions tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN GENERATE TREND TOOL
+
+    arcpy.SetProgressor('default', 'Checking generate trend tool...')
+
+    try:
+        tests.test_generatetrend(in_folder, project_folder)
+        arcpy.AddMessage('Generate Trend tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Generate Trend tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN DETECT UAV CHANGE TOOL
+
+    arcpy.SetProgressor('default', 'Checking detect UAV change tool...')
+
+    try:
+        tests.test_detectuavchange(in_folder, project_folder)
+        arcpy.AddMessage('Detect UAV Change tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Detect UAV Change tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN DETECT FRACTION CHANGE TOOL
+
+    arcpy.SetProgressor('default', 'Checking detect fraction change tool...')
+
+    try:
+        tests.test_detectfractionchange(in_folder, project_folder)
+        arcpy.AddMessage('Detect Fraction Change tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Detect Fraction Change tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
 
 # testing
-#execute(None)
+execute(None)

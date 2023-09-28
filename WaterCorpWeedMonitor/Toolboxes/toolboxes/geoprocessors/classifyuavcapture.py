@@ -11,7 +11,7 @@ def execute(
     import numpy as np
     import arcpy
 
-    from scripts import uav_classify, glcm, shared
+    from scripts import uav_classify, shared  # glcm
 
     # endregion
 
@@ -30,7 +30,7 @@ def execute(
     # in_flight_datetime = '2023-07-06 22:05:46'
     # #in_include_prior = False  # this parameter is only for ui control
     # in_roi_feat = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Classification\Final\train_test_rois_smaller_bc_grp_nvwvo_wgs_z50s.shp'
-    # in_variables = 'NDVI;NDREI;NGRDI;OSAVI;Mean;Entropy;SecondMoment;Variance;CHM'
+    # in_variables = 'NDVI;NDREI;NGRDI;OSAVI;Mean;Minimum;Maximum;StanDev;Range;Skew;Kurtosis;Entropy;Variance;CHM'
 
     # endregion
 
@@ -270,7 +270,7 @@ def execute(
 
         # generate pca, grayscale and normalise 0-255
         tmp_gry = uav_classify.make_grayscale(in_band_list=band_list,
-                                              levels=16)  # TODO: set 32. use 18 for glcm
+                                              levels=16)
 
         # save grayscale to tif
         tmp_gry.save('tmp_gry.tif')
@@ -290,11 +290,17 @@ def execute(
     # create texture indices map to maintain band order
     tmp_map = {
         'mean': os.path.join(bands_folder, 'tx_mean.tif'),
-        'contrast': os.path.join(bands_folder, 'tx_contrast.tif'),
-        'dissimilarity': os.path.join(bands_folder, 'tx_dissimilarity.tif'),
+        'minimum': os.path.join(bands_folder, 'tx_min.tif'),
+        'maximum': os.path.join(bands_folder, 'tx_max.tif'),
+        'standev': os.path.join(bands_folder, 'tx_standev.tif'),
+        'range': os.path.join(bands_folder, 'tx_range.tif'),
+        #'contrast': os.path.join(bands_folder, 'tx_contrast.tif'),
+        #'dissimilarity': os.path.join(bands_folder, 'tx_dissimilarity.tif'),
+        'skew': os.path.join(bands_folder, 'tx_skew.tif'),
+        'kurtosis': os.path.join(bands_folder, 'tx_kurtosis.tif'),
         'entropy': os.path.join(bands_folder, 'tx_entropy.tif'),
-        'homogeneity': os.path.join(bands_folder, 'tx_homogeneity.tif'),
-        'secondmoment': os.path.join(bands_folder, 'tx_secondmoment.tif'),
+        #'homogeneity': os.path.join(bands_folder, 'tx_homogeneity.tif'),
+        #'secondmoment': os.path.join(bands_folder, 'tx_secondmoment.tif'),
         'variance': os.path.join(bands_folder, 'tx_variance.tif')
     }
 
@@ -309,12 +315,59 @@ def execute(
 
     if len(tx_map) > 0:
         try:
+            # setup neighbourhood object
+            win = arcpy.sa.NbrRectangle(5, 5, 'CELL')
+
             # calculate glcm textures... can take awhile!
-            glcm.quick_glcm(in_gray_ras='tmp_gry.tif',
-                            textures_map=tx_map,
-                            levels=18,
-                            kernel_size=5,
-                            v_block_size=50)
+            #glcm.quick_glcm(in_gray_ras='tmp_gry.tif',
+                            #textures_map=tx_map,
+                            #levels=18,
+                            #kernel_size=5,
+                            #v_block_size=50)
+
+            # iter each texture and calculate
+            for k, v in tx_map.items():
+                if k == 'mean':
+                    ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
+                                                   neighborhood=win,
+                                                   statistics_type='MEAN')
+                elif k == 'minimum':
+                    ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
+                                                   neighborhood=win,
+                                                   statistics_type='MINIMUM')
+                elif k == 'maximum':
+                    ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
+                                                   neighborhood=win,
+                                                   statistics_type='MAXIMUM')
+                elif k == 'standev':
+                    ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
+                                                   neighborhood=win,
+                                                   statistics_type='STD')
+                elif k == 'range':
+                    ras = arcpy.sa.FocalStatistics(in_raster=tmp_gry,
+                                                   neighborhood=win,
+                                                   statistics_type='RANGE')
+                elif k == 'skew':
+                    ras = uav_classify.calc_skew(in_gray_ras='tmp_gry.tif',
+                                                 win_size=5)
+                elif k == 'kurtosis':
+                    ras = uav_classify.calc_kurtosis(in_gray_ras='tmp_gry.tif',
+                                                     win_size=5)
+                elif k == 'entropy':
+                    ras = uav_classify.calc_entropy(in_gray_ras='tmp_gry.tif',
+                                                    win_size=5)
+                elif k == 'variance':
+                    ras = uav_classify.calc_variance(in_gray_ras='tmp_gry.tif',
+                                                     win_size=5)
+
+                # save to associated path
+                ras.save(v)
+
+                # notify user
+                arcpy.AddMessage(f'Texture index {k} done.')
+
+                # increment progressor
+                arcpy.SetProgressorPosition()
 
         except Exception as e:
             arcpy.AddError('Could not calculate textures indices. See messages.')

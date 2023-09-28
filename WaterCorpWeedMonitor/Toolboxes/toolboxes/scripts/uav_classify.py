@@ -4,6 +4,9 @@ import numpy as np
 import pandas as pd
 import arcpy
 
+from numpy.lib.stride_tricks import sliding_window_view as swv
+from scipy.stats import skew, kurtosis, entropy
+
 
 def make_grayscale(
         in_band_list: list,
@@ -40,6 +43,243 @@ def make_grayscale(
         raise e
 
     return tmp_rsc
+
+
+def calc_skew(
+        in_gray_ras: str,
+        win_size: int = 5
+) -> arcpy.Raster:
+    """
+
+    :param in_gray_ras:
+    :param win_size:
+    :return:
+    """
+
+    # read raster
+    ras = arcpy.Raster(in_gray_ras)
+
+    # extract lower left point of ras
+    ll = arcpy.Point(ras.extent.XMin, ras.extent.YMin)
+
+    # extract spatial ref and nodata of ras
+    srs = ras.spatialReference
+    nodata = ras.noDataValue
+
+    # extract raw raster values
+    arr = arcpy.RasterToNumPyArray(ras, nodata_to_value=np.nan)
+
+    # create windows
+    wins = swv(arr, window_shape=(win_size, win_size))
+
+    skews = []
+    for win in wins:
+        # convert each 2d kernel win to 1d arrays
+        win = win.reshape(win.shape[0], -1)
+
+        # calc skews for 1d arrays
+        skews.append(skew(win, -1))
+
+    # convert back to array
+    skews = np.array(skews)
+
+    # get half size of kernel win minus center
+    pad = int(np.ceil(win_size / 2)) - 1
+
+    # create template array and fill with metric values
+    arr_out = np.full_like(arr, np.nan)
+    arr_out[pad:-pad, pad:-pad] = skews
+
+    # export as raster
+    out_ras = arcpy.NumPyArrayToRaster(arr_out,
+                                       lower_left_corner=ll,
+                                       x_cell_size=ras,
+                                       y_cell_size=ras,
+                                       value_to_nodata=nodata)
+
+    # define projection for current ras
+    arcpy.management.DefineProjection(in_dataset=out_ras,
+                                      coor_system=srs)
+
+    return out_ras
+
+
+def calc_kurtosis(
+        in_gray_ras: str,
+        win_size: int = 5
+) -> arcpy.Raster:
+    """
+
+    :param in_gray_ras:
+    :param win_size:
+    :return:
+    """
+
+    # read raster
+    ras = arcpy.Raster(in_gray_ras)
+
+    # extract lower left point of ras
+    ll = arcpy.Point(ras.extent.XMin, ras.extent.YMin)
+
+    # extract spatial ref and nodata of ras
+    srs = ras.spatialReference
+    nodata = ras.noDataValue
+
+    # extract raw raster values
+    arr = arcpy.RasterToNumPyArray(ras, nodata_to_value=np.nan)
+
+    # create windows
+    wins = swv(arr, window_shape=(win_size, win_size))
+
+    kurts = []
+    for win in wins:
+        # convert each 2d kernel win to 1d arrays
+        win = win.reshape(win.shape[0], -1)
+
+        # calc kurts for 1d arrays
+        kurts.append(kurtosis(win, -1))
+
+    # convert back to array
+    kurts = np.array(kurts)
+
+    # get half size of kernel win minus center
+    pad = int(np.ceil(win_size / 2)) - 1
+
+    # create template array and fill with metric values
+    arr_out = np.full_like(arr, np.nan)
+    arr_out[pad:-pad, pad:-pad] = kurts
+
+    # export as raster
+    out_ras = arcpy.NumPyArrayToRaster(arr_out,
+                                       lower_left_corner=ll,
+                                       x_cell_size=ras,
+                                       y_cell_size=ras,
+                                       value_to_nodata=nodata)
+
+    # define projection for current ras
+    arcpy.management.DefineProjection(in_dataset=out_ras,
+                                      coor_system=srs)
+
+    return out_ras
+
+
+def calc_entropy(
+        in_gray_ras: str,
+        win_size: int = 5
+) -> arcpy.Raster:
+    """
+
+    :param in_gray_ras:
+    :param win_size:
+    :return:
+    """
+
+    # read raster
+    ras = arcpy.Raster(in_gray_ras)
+
+    # extract lower left point of ras
+    ll = arcpy.Point(ras.extent.XMin, ras.extent.YMin)
+
+    # extract spatial ref and nodata of ras
+    srs = ras.spatialReference
+    nodata = ras.noDataValue
+
+    # extract raw raster values
+    arr = arcpy.RasterToNumPyArray(ras, nodata_to_value=np.nan)
+
+    # create windows
+    wins = swv(arr, window_shape=(win_size, win_size))
+
+    entrs = []
+    for win in wins:
+        # convert each 2d kernel win to 1d arrays
+        win = win.reshape(win.shape[0], -1)
+
+        # calc entrs for 1d arrays
+        entrs.append(entropy(win, base=2, axis=-1))
+
+    # convert back to array
+    entrs = np.array(entrs)
+
+    # get half size of kernel win minus center
+    pad = int(np.ceil(win_size / 2)) - 1
+
+    # create template array and fill with metric values
+    arr_out = np.full_like(arr, np.nan)
+    arr_out[pad:-pad, pad:-pad] = entrs
+
+    # export as raster
+    out_ras = arcpy.NumPyArrayToRaster(arr_out,
+                                       lower_left_corner=ll,
+                                       x_cell_size=ras,
+                                       y_cell_size=ras,
+                                       value_to_nodata=nodata)
+
+    # define projection for current ras
+    arcpy.management.DefineProjection(in_dataset=out_ras,
+                                      coor_system=srs)
+
+    return out_ras
+
+
+def calc_variance(
+        in_gray_ras: str,
+        win_size: int = 5
+) -> arcpy.Raster:
+    """
+
+    :param in_gray_ras:
+    :param win_size:
+    :return:
+    """
+
+    # read raster
+    ras = arcpy.Raster(in_gray_ras)
+
+    # extract lower left point of ras
+    ll = arcpy.Point(ras.extent.XMin, ras.extent.YMin)
+
+    # extract spatial ref and nodata of ras
+    srs = ras.spatialReference
+    nodata = ras.noDataValue
+
+    # extract raw raster values
+    arr = arcpy.RasterToNumPyArray(ras, nodata_to_value=np.nan)
+
+    # create windows
+    wins = swv(arr, window_shape=(win_size, win_size))
+
+    varis = []
+    for win in wins:
+        # convert each 2d kernel win to 1d arrays
+        win = win.reshape(win.shape[0], -1)
+
+        # calc varis for 1d arrays
+        varis.append(np.nanvar(win, -1))
+
+    # convert back to array
+    varis = np.array(varis)
+
+    # get half size of kernel win minus center
+    pad = int(np.ceil(win_size / 2)) - 1
+
+    # create template array and fill with metric values
+    arr_out = np.full_like(arr, np.nan)
+    arr_out[pad:-pad, pad:-pad] = varis
+
+    # export as raster
+    out_ras = arcpy.NumPyArrayToRaster(arr_out,
+                                       lower_left_corner=ll,
+                                       x_cell_size=ras,
+                                       y_cell_size=ras,
+                                       value_to_nodata=nodata)
+
+    # define projection for current ras
+    arcpy.management.DefineProjection(in_dataset=out_ras,
+                                      coor_system=srs)
+
+    return out_ras
+
 
 def validate_rois(
         in_roi_feat: str,

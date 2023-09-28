@@ -201,7 +201,7 @@ def execute(
             arcpy.AddError('Fraction folders could be found.')
             return
 
-    # create fraction "from", "mid", "to" maps
+    # create fraction "from", "to" maps
     from_map, to_map = {}, {}
 
     try:

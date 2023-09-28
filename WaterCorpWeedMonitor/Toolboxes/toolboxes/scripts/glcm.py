@@ -227,7 +227,6 @@ def quick_glcm(
         for var in textures_map:
             results[var] = []
 
-
         i = 0
         items = []
         for y_s in range(0, h, v_block_size):

@@ -283,19 +283,37 @@ def gwr(
         if var not in fields:
             raise ValueError('Missing expected band.')
 
+    # set success flag
+    flag = True
+
     try:
-        # TODO: need to implement fall back for lack of variation
-        # TODO: we can run into situation where not enough variation in a class (e.g. weeds). Will crash.
-        # TODO: So, set to nearest neighours method and golden search but set the weight thing from bivariate
-        # TODO: to gaussian - this fixes the issue.
         # perform geographically weighted regression
         arcpy.stats.GWR(in_features=in_rois,
                         dependent_variable=classvalue,
                         model_type='CONTINUOUS',
                         explanatory_variables=data_vars,
                         output_features=out_prediction_shp,
-                        neighborhood_type='DISTANCE_BAND',
-                        neighborhood_selection_method='GOLDEN_SEARCH')
+                        neighborhood_type='NUMBER_OF_NEIGHBORS',
+                        neighborhood_selection_method='GOLDEN_SEARCH',
+                        local_weighting_scheme='GAUSSIAN')
+
+    except Exception as e:
+        arcpy.AddWarning(f'Warning, error during GWR: {str(e)}')
+        flag = False
+
+    try:
+        # check fallback
+        if flag is False:
+
+            # use fallback if needed
+            arcpy.stats.GWR(in_features=in_rois,
+                            dependent_variable=classvalue,
+                            model_type='CONTINUOUS',
+                            explanatory_variables=data_vars,
+                            output_features=out_prediction_shp,
+                            neighborhood_type='NUMBER_OF_NEIGHBORS',
+                            neighborhood_selection_method='USER_DEFINED',
+                            number_of_neighbors=100)
 
     except Exception as e:
         raise e

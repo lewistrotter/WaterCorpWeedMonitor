@@ -21,6 +21,7 @@
     <None Remove="Toolboxes\toolboxes\scripts\change.py" />
     <None Remove="Toolboxes\toolboxes\scripts\glcm.py" />
     <None Remove="Toolboxes\toolboxes\scripts\shared.py" />
+    <None Remove="Toolboxes\toolboxes\scripts\tests.py" />
     <None Remove="Toolboxes\toolboxes\scripts\trends.py" />
     <None Remove="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <None Remove="Toolboxes\toolboxes\scripts\uav_fractions.py" />
@@ -45,6 +46,7 @@
     <Content Include="Toolboxes\toolboxes\scripts\change.py" />
     <Content Include="Toolboxes\toolboxes\scripts\glcm.py" />
     <Content Include="Toolboxes\toolboxes\scripts\shared.py" />
+    <Content Include="Toolboxes\toolboxes\scripts\tests.py" />
     <Content Include="Toolboxes\toolboxes\scripts\trends.py" />
     <Content Include="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <Content Include="Toolboxes\toolboxes\scripts\uav_fractions.py" />

@@ -44,7 +44,7 @@ def execute(
     # in_dtm_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_dtm.tif'
 
     # endregion
-    
+
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region PREPARE ENVIRONMENT
 

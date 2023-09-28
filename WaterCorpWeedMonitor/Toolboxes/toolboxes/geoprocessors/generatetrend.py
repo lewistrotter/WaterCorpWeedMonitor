@@ -274,9 +274,6 @@ def execute(
             # extract current var
             da = ds[[var]]
 
-            # TODO: enable this when testing to check trends
-            #da.to_netcdf(os.path.join(tmp, f'ts_{var}.nc'))
-
             # create trend rgb xr
             ds_tnd = trends.generate_trend_rgb_xr(ds=da, var_name=var)
 
@@ -354,7 +351,7 @@ def execute(
         pass
 
     # clear temp folder (errors skipped)
-    shared.clear_tmp_folder(tmp_folder=tmp)  # TODO: disable when testing
+    shared.clear_tmp_folder(tmp_folder=tmp)
 
     # free up spatial analyst
     arcpy.CheckInExtension('Spatial')
