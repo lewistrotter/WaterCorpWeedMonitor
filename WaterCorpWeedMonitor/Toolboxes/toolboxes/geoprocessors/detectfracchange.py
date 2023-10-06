@@ -1,7 +1,6 @@
 
 def execute(
         parameters
-        # messages # TODO: implement
 ):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region IMPORTS
@@ -9,6 +8,7 @@ def execute(
     import os
     import json
     import datetime
+    import warnings
     import numpy as np
     import arcpy
 
@@ -17,21 +17,35 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    in_project_file = parameters[0].valueAsText
-    in_flight_datetime = parameters[1].valueAsText
-    in_s2_from_year = parameters[2].value
-    in_s2_to_year = parameters[3].value
-    in_s2_month = parameters[4].value
+    # in_project_file = parameters[0].valueAsText
+    # in_flight_datetime = parameters[1].valueAsText
+    # in_from_year = parameters[2].valueAsText
+    # in_manual_from_year = parameters[3].value
+    # in_to_year = parameters[4].valueAsText
+    # in_manual_to_year = parameters[5].value
+    # in_month = parameters[6].valueAsText
+    # in_manual_month = parameters[7].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
-    # in_flight_datetime = '2023-02-02 13:27:34'
-    # in_s2_from_year = 2017
-    # in_s2_to_year = 2023
-    # in_s2_month = 3
+    in_project_file = r'C:\Users\Lewis\Desktop\testing\goegrup\meta.json'
+    in_flight_datetime = '2022-12-15 11:00:00'
+    in_from_year = 'Manual'  # 'Year of Rehabilitation'  # 'Manual'
+    in_manual_from_year = 2016
+    in_to_year = 'Current Year'  # 'Manual'
+    in_manual_to_year = 2023
+    in_month = 'Manual'  #'Month of Rehabilitation'  # 'Manual'
+    in_manual_month = 12 # 6
 
     # endregion
 
@@ -123,6 +137,12 @@ def execute(
         arcpy.AddError('Project has no UAV capture data.')
         return
 
+    # check and get start of rehab date
+    rehab_start_date = meta.get('date_rehab')
+    if rehab_start_date is None:
+        arcpy.AddError('Project has no start of rehab date.')
+        return
+
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -148,63 +168,115 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region GET "FROM" AND "TO" FRACTIONAL RASTERS
+    # region PREPARE FRACTIONAL RASTER DATA
 
-    arcpy.SetProgressor('default', 'Obtaining fractional "from" and "to" rasters...')
+    arcpy.SetProgressor('default', 'Reading and checking class fraction folders...')
 
-    # check if start year < 2016, fix and warn if so
-    if in_s2_from_year < 2016:
-        arcpy.AddWarning('Start of rehab < Sentinel 2 data start, using 2016.')
-        in_s2_from_year = 2016
+    # get captures and fractions folder
+    capture_folders = os.path.join(in_project_folder, 'uav_captures')
+    capture_folder = os.path.join(capture_folders, meta_item['capture_folder'])
+    fraction_folder = os.path.join(capture_folder, 'fractions')
 
-    # check if from year less than to year
-    if in_s2_from_year >= in_s2_to_year:
-        arcpy.AddError('The "from" year must be less than "to" year.')
+    # check fraction folder exists
+    if not os.path.exists(fraction_folder):
+        arcpy.AddError('No fraction folder detected. Run fraction tool first.')
         return
 
-    # TODO: check if at least 3 years available
-    # ...
-
-    # TODO: might want some logic to check if to month exists and roll back 1 if not
-    # ...
-
-    # set "from" and "to" dates without days
-    date_from = f'{in_s2_from_year}-{str(in_s2_month).zfill(2)}'
-    date_to = f'{in_s2_to_year}-{str(in_s2_month).zfill(2)}'
-
-    # get "mid" date
-    mid_year = np.floor((in_s2_from_year + in_s2_to_year) / 2)
-    mid_date = f'{int(mid_year)}-{str(in_s2_month).zfill(2)}'
-
-    # check if fractions exist
-    frac_dates = meta_item['fractions']
-    if len(frac_dates) == 0:
-        arcpy.AddError('No fractional data found. Run fractional tool.')
+    # get list of prior processed year-month fractional folders
+    valid_frac_dates = meta_item.get('fractions')
+    if valid_frac_dates is None:
+        arcpy.AddError('No fraction data found. Run fraction tool first.')
         return
 
-    # check if "from", "mid", "to" year-month in fractional list
-    for date in [date_from, mid_date, date_to]:
-        if date not in frac_dates:
-            arcpy.AddError('Could not find requested from and to date fractions.')
-            return
+    # endregion
 
-    # set fractions folder
-    captures_folder = os.path.join(in_project_folder, 'uav_captures')
-    capture_folder = os.path.join(captures_folder, meta_item['capture_folder'])
-    fractions_folder = os.path.join(capture_folder, 'fractions')
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region PREPARE FROM AND TO DATES
 
-    # build "from" and "to" folders and check they exist
-    from_folder = os.path.join(fractions_folder, date_from)
-    to_folder = os.path.join(fractions_folder, date_to)
+    arcpy.SetProgressor('default', 'Preparing "from" and "to" dates...')
+
+    # get rehab year
+    rehab_year = int(rehab_start_date.split('-')[0])
+
+    # correct rehab year if < 2016
+    if rehab_year < 2016:
+        rehab_year = 2016
+        if in_from_year == 'Year of Rehabilitation':
+            arcpy.AddWarning('Start of rehab < Sentinel 2 data start, using 2016.')
+
+    # set "from" year based on selection
+    from_year = None
+    if in_from_year == 'Year of Rehabilitation':
+        from_year = rehab_year
+    elif in_from_year == 'Manual':
+        from_year = in_manual_from_year
+
+    # set "to" year based on selection
+    to_year = None
+    if in_to_year == 'Current Year':
+        to_year = datetime.datetime.now().year
+    elif in_to_year == 'Manual':
+        to_year = in_manual_to_year
+
+    # get month of rehab and capture
+    rehab_month = int(rehab_start_date.split('-')[1])
+    capture_month = int(in_flight_datetime.split('-')[1])
+
+    # set month based on selection
+    month = None
+    if in_month == 'Month of Rehabilitation':
+        month = rehab_month
+    elif in_month == 'Month of First UAV Capture':
+        month = capture_month
+    elif in_month == 'Manual':
+        month = in_manual_month
+
+    try:
+        # validate if dates exist and attempt fix if bad. error if cant
+        result = change.validate_frac_dates(dates=valid_frac_dates,
+                                            from_year=from_year,
+                                            to_year=to_year,
+                                            month=month)
+
+        # unpack clean date values
+        from_year, to_year, month = result
+
+    except Exception as e:
+        arcpy.AddError('Could not obtain dates from fraction NetCDFs. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    # check "from" and "to" have a year difference
+    if from_year >= to_year:
+        arcpy.AddError('Need at least a year between "from" and "to" images.')
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region PREPARE FROM AND TO RASTERS
+
+    arcpy.SetProgressor('default', 'Preparing "from" and "to" rasters...')
+
+    # build from and to date strings
+    from_date = f'{from_year}-{str(month).zfill(2)}'
+    to_date = f'{to_year}-{str(month).zfill(2)}'
+
+    # get paths for from and to folders
+    from_folder = os.path.join(fraction_folder, from_date)
+    to_folder = os.path.join(fraction_folder, to_date)
+
+    # check both actually exist
     for folder in [from_folder, to_folder]:
         if not os.path.exists(folder):
-            arcpy.AddError('Fraction folders could be found.')
+            arcpy.AddError(f'Fraction folder could not be found.')
             return
 
     # create fraction "from", "to" maps
     from_map, to_map = {}, {}
 
     try:
+        # populate maps with fraction class rasters
         folders = [from_folder, to_folder]
         maps = [from_map, to_map]
         for folder, var_map in zip(folders, maps):
@@ -218,21 +290,15 @@ def execute(
         arcpy.AddMessage(str(e))
         return
 
-    # check if we have three items per map
+    # check we have three items per map
     if len(from_map) != 3 or len(to_map) != 3:
-        arcpy.AddError('Could not obtain find expected six fraction rasters.')
+        arcpy.AddError('Could not find required six fraction rasters.')
         return
-
-    # create formatted dates for output file later
-    date_to = date_to.replace('-', '')
-    date_from = date_from.replace('-', '')
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region PERFORM FROM-TO CHANGE CLASSIFICATION
-
-    # TODO: remove tmp vars
 
     arcpy.SetProgressor('default', 'Performing change detection...')
 
@@ -244,15 +310,14 @@ def execute(
             from_ras, to_ras = from_map[var], to_map[var]
 
             # perform change detection on frac data
-            tmp_chg_from_to = os.path.join(tmp, f'tmp_chg_from_to_{var}.tif')
+            tmp_chg = f'tmp_frc_chg_{var}.tif'
             change.detect_diff_change(in_from_ras=from_ras,
                                       in_to_ras=to_ras,
-                                      out_from_to_ras=tmp_chg_from_to)
+                                      out_from_to_ras=tmp_chg)
 
-            # threshold "from" to "mid" into zscore where z < -2 or > 2
-            tmp_pos = os.path.join(tmp, f'tmp_zsc_pos_{var}.tif')
-            tmp_neg = os.path.join(tmp, f'tmp_zsc_neg_{var}.tif')
-            change.threshold_via_zscore(in_ras=tmp_chg_from_to,
+            # threshold change into zscore where z < -2 or > 2
+            tmp_pos, tmp_neg = f'p_{var}.tif', f'n_{var}.tif'  # f'tmp_z_pos_{var}.tif', f'tmp_z_neg_{var}.tif'
+            change.threshold_via_zscore(in_ras=tmp_chg,
                                         z=2,
                                         out_z_pos_ras=tmp_pos,
                                         out_z_neg_ras=tmp_neg)
@@ -278,8 +343,12 @@ def execute(
     if not os.path.exists(change_folder):
         os.mkdir(change_folder)
 
+    # create formatted dates for output files
+    date_from = from_date.replace('-', '')
+    date_to = to_date.replace('-', '')
+
     try:
-        # for each frac class...
+        # iter each frac class...
         chg_map = {}
         for dir, item in zip(['gain', 'loss'], [pos_chg_map, neg_chg_map]):
             # unpack map paths
@@ -291,12 +360,9 @@ def execute(
             ras_cmb = arcpy.sa.Combine([tmp_other, tmp_native, tmp_weed])
 
             # set output file name and path and save
-            out_fn = f'change_frac_{dir}_{date_from}_to_{date_to}.tif'
+            out_fn = f'change_frc_{dir}_{date_from}_to_{date_to}.tif'
             out_cmb = os.path.join(change_folder, out_fn)
             ras_cmb.save(out_cmb)
-
-            # fix field names
-            change.fix_field_names(in_ras=out_cmb)
 
             # update attribute table classes in-place
             change.update_frac_classes(in_ras=out_cmb)
@@ -418,7 +484,7 @@ def execute(
     return
 
 # testing
-#execute(None)
+execute(None)
 
 
 

@@ -758,6 +758,12 @@ def delete_error_downloads(
     results: list,
     nc_folder: str
 ) -> None:
+    """
+
+    :param results:
+    :param nc_folder:
+    :return:
+    """
 
     # get list of all netcdf download errors
     errors = [d for d in results if 'error' in d]

@@ -1,9 +1,6 @@
-import pandas as pd
-
 
 def execute(
         parameters
-        # messages # TODO: implement
 ):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region IMPORTS
@@ -11,9 +8,18 @@ def execute(
     import os
     import json
     import datetime
+    import warnings
     import arcpy
 
     from scripts import change, shared
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
 
     # endregion
 
@@ -24,11 +30,15 @@ def execute(
     in_project_file = parameters[0].valueAsText
     in_uav_from_date = parameters[1].valueAsText
     in_uav_to_date = parameters[2].valueAsText
+    in_use_majority_filter = parameters[3].value
+    in_use_shrink_filter = parameters[4].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
-    # in_uav_from_date = '2023-02-02 13:27:34'
-    # in_uav_to_date = '2023-07-06 13:31:28'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing\citybeach\meta.json'
+    # in_uav_from_date = '2023-02-02 11:00:00'
+    # in_uav_to_date = '2024-02-05 11:00:00'
+    # in_use_majority_filter = True
+    # in_use_shrink_filter = False
 
     # endregion
 
@@ -87,7 +97,7 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing workspace...')
 
-    # create temp folder, if does not already exist
+    # create temp folder if does not already exist
     tmp = os.path.join(in_project_folder, 'tmp')
     if not os.path.exists(tmp):
         os.mkdir(tmp)
@@ -182,13 +192,20 @@ def execute(
 
     arcpy.SetProgressor('default', 'Performing change detection...')
 
+    # set output change folder
+    change_folder = os.path.join(captures_folder, to_folder, 'change')
+    if not os.path.exists(change_folder):
+        os.mkdir(change_folder)
+
+    # set output file name and path
+    out_fn = f'change_uav_{date_from}_to_{date_to}.tif'
+    ras_cls = os.path.join(change_folder, out_fn)
+
     try:
-        # TODO: try and remove tmp vars, have done it up to here
         # perform change detection on uav data
-        tmp_chg = os.path.join(tmp, 'tmp_chg.tif')
         change.detect_category_change(in_from_ras=from_ras,
                                       in_to_ras=to_ras,
-                                      out_change_ras='tmp_chg.tif')
+                                      out_change_ras=ras_cls)
 
     except Exception as e:
         arcpy.AddError('Could not perform UAV change detection. See messages.')
@@ -202,26 +219,34 @@ def execute(
 
     arcpy.SetProgressor('default', 'Cleaning change detection output...')
 
-    # set output change folder
-    change_folder = os.path.join(captures_folder, to_folder, 'change')
-    if not os.path.exists(change_folder):
-        os.mkdir(change_folder)
-
     try:
         # extract raster attributes depending on user selection
-        chg_attrs = change.extract_uav_change_attrs(in_ras=tmp_chg)
+        chg_attrs = change.extract_uav_change_attrs(in_ras=ras_cls)
 
-        # set output file name and path
-        out_fn = f'change_uav_{date_from}_to_{date_to}.tif'
-        ras_cln = os.path.join(change_folder, out_fn)
+        if in_use_majority_filter:
+            # apply majority filter (5x5)
+            change.apply_majority_filter(in_ras=ras_cls,
+                                         out_ras='tmp_maj.tif')
 
-        # apply majority filter x3 and create new raster
-        change.remove_uav_noise(in_ras=tmp_chg,
-                                out_ras=ras_cln)
+            # overwrite existing classified raster
+            arcpy.management.CopyRaster(in_raster='tmp_maj.tif',
+                                        out_rasterdataset=ras_cls)
 
-        # append original raster attributes back on
-        change.append_uav_attrs(in_ras=ras_cln,
-                                in_attrs=chg_attrs)
+        if in_use_shrink_filter:
+            # apply shrink filter to reduce everything 1 pixel
+            change.apply_shrink_filter(in_ras=ras_cls,
+                                       chg_attrs=chg_attrs,
+                                       out_ras='tmp_shk.tif')
+
+            # overwrite existing classified raster
+            arcpy.management.CopyRaster(in_raster='tmp_shk.tif',
+                                        out_rasterdataset=ras_cls)
+
+        if in_use_majority_filter or in_use_shrink_filter:
+            # append original raster attributes back on
+            change.append_uav_attrs(in_ras=ras_cls,
+                                    in_attrs=chg_attrs)
+
 
     except Exception as e:
         arcpy.AddError('Could not clean UAV change detection raster. See messages.')
@@ -244,12 +269,12 @@ def execute(
     try:
         # calculate area (ha) per class and save to csv
         tmp_csv = os.path.join(change_folder, 'areas.csv')
-        change.calc_uav_change_areas(in_ras=ras_cln,
+        change.calc_uav_change_areas(in_ras=ras_cls,
                                      in_boundary=tmp_bnd,
                                      out_csv=tmp_csv)
 
     except Exception as e:
-        arcpy.AddWarning('Could not calculate change areas. See messages.')
+        arcpy.AddWarning('Could not calculate areas. See messages.')
         arcpy.AddMessage(str(e))
         pass
 
@@ -265,11 +290,11 @@ def execute(
 
     try:
         # create uav change raster for visualise folder
-        tmp_cln = arcpy.Raster(ras_cln)
+        tmp_ras = arcpy.Raster(ras_cls)
 
         # save uav rgb raster to visualise folder
         out_tif = os.path.join(visualise_folder, out_fn)
-        tmp_cln.save(out_tif)
+        tmp_ras.save(out_tif)
 
         # visualise it on active map and symbolise it to class colors
         shared.add_raster_to_map(in_ras=out_tif)
@@ -289,7 +314,7 @@ def execute(
 
     try:
         # drop temp files (free up space)
-        del tmp_cln
+        del tmp_ras
 
     except Exception as e:
         arcpy.AddWarning('Could not drop temporary files. See messages.')

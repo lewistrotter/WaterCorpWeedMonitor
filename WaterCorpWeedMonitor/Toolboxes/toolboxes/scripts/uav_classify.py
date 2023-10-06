@@ -309,7 +309,7 @@ def validate_rois(
 
     # check if spatial reference is in wgs84 utm zone 50s (32750)
     if fc_srs == 'Unknown' or fc_srs.factoryCode != 3577:
-        raise ValueError('Training areas not projected in WGS84 UTM Zone 50S (32750).')
+        raise ValueError('Training areas not projected in GDA94 Albers (3577).')
 
     # check if required fields exist
     req_fields = ['Classname', 'Classvalue']

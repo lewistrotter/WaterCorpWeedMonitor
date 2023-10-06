@@ -16,7 +16,7 @@ def remove_xr_outliers(
 ) -> xr.Dataset:
     """
     Takes a raw multiband xarray dataset and calculates outliers based
-    on z-score. If any band has an outlier, the all bands for that
+    on z-score. If any band pixel has an outlier, then all bands for that
     pixel are set to nan. This is done per date in dataset.
 
     :param ds: Xarray Dataset with multiple raw bands.
@@ -234,6 +234,10 @@ def extract_xr_to_roi_points(
                 arr = ds.sel(x=x, y=y, method='nearest', tolerance=0.5)
                 vals = arr.to_array().data
 
+                # check if nans, fill with 0 if yes
+                if np.isnan(vals).any():
+                    vals = np.where(np.isnan(vals), 0, vals)
+
                 # move band values to row band fields, update
                 row[:-1] = vals
                 cursor.updateRow(row)
@@ -343,6 +347,85 @@ def gwr(
         pass
 
     return out_prediction_shp
+
+
+
+def old_regress(
+        in_rois: str,
+        classvalue: str,
+        classdesc: str,
+        out_regress_shp: str,
+        out_accuracy_csv: str
+) -> str:
+    """
+
+    :param in_rois:
+    :param classvalue:
+    :param classdesc:
+    :param out_regress_shp:
+    :param out_accuracy_csv:
+    :return:
+    """
+
+    # create expected list of fields
+    data_vars = [
+        'blue',
+        'green',
+        'red',
+        'redge_1',
+        'redge_2',
+        'redge_3',
+        'nir_1',
+        'nir_2',
+        'swir_2',
+        'swir_3'
+    ]
+
+    # get band field names from shapefile
+    fields = [f.name for f in arcpy.ListFields(in_rois)]
+
+    # check if we have all vars in shapefile
+    for var in data_vars:
+        if var not in fields:
+            raise ValueError('Missing expected band.')
+
+    # convert csv to dbf for function
+    tmp_cmat_dbf = os.path.basename(out_accuracy_csv)
+    tmp_cmat_dbf = tmp_cmat_dbf.split('.')[0] + '.dbf'
+
+
+    try:
+        # train and predict regression
+        arcpy.stats.Forest(prediction_type='PREDICT_FEATURES',
+                           in_features=in_rois,
+                           variable_predict=classvalue,
+                           explanatory_variables=data_vars,
+                           features_to_predict=in_rois,
+                           output_features=out_regress_shp,
+                           explanatory_variable_matching=data_vars,
+                           number_of_trees=250,
+                           percentage_for_training=10,
+                           output_validation_table=tmp_cmat_dbf,
+                           number_validation_runs=5)
+
+    except Exception as e:
+        raise e
+
+    try:
+        # create full path to dbf and conbvert to output csv
+        tmp_cmat_dbf = os.path.join(arcpy.env.workspace, tmp_cmat_dbf)
+        arcpy.conversion.ExportTable(in_table=tmp_cmat_dbf,
+                                     out_table=out_accuracy_csv)
+
+        # read csv with pandas and get average r-squares
+        med_r2 = pd.read_csv(out_accuracy_csv)['R2'].median().round(3)
+        arcpy.AddMessage(f'> R-Squared for {classdesc}: {str(med_r2)}')
+
+    except:
+        raise ValueError('Could not read accuracy messages.')
+        pass
+
+    return out_regress_shp
 
 
 def force_pred_zero_to_one(

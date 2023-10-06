@@ -82,13 +82,13 @@ def extract_uav_change_attrs(
     return tbl_rows
 
 
-def remove_uav_noise(
-        in_ras: str,
-        out_ras: str
-) -> str:
+def apply_majority_filter(
+    in_ras: str,
+    out_ras: str
+):
     """
-    Takes a classified UAV raster and applies
-    majority filter to it to remove speckles.
+    Takes a classified UAV raster and applies majority filter
+    to it to remove speckles.
 
     :param in_ras: Path to classified UAV raster.
     :param out_ras: Path to output clean classified UAV raster.
@@ -102,6 +102,44 @@ def remove_uav_noise(
 
         # save cleaned classified raster
         tmp_maj.save(out_ras)
+
+    except Exception as e:
+        raise e
+
+    return out_ras
+
+
+def apply_shrink_filter(
+        in_ras: str,
+        chg_attrs: list,
+        out_ras: str
+):
+    """
+    Takes a classified UAV raster and applies pixel shrink
+    to remove small isolated pixels and more noise.
+
+    :param in_ras: Path to classified UAV raster.
+    :param chg_attrs: List of raster value and change name dicts.
+    :param out_ras: Path to output clean classified UAV raster.
+    :return: Path of output clean classified UAV raster.
+    """
+
+    try:
+        # extract all non "no change" classes
+        shrink_classes = []
+        for item in chg_attrs:
+            if item['Class_name'] != 'No Change':
+                shrink_classes.append(item['Value'])
+
+        if len(shrink_classes) > 0:
+            # shrink filtered raster by 1 pixel if we have no change
+            tmp_shk = arcpy.sa.Shrink(in_raster=in_ras,
+                                      number_cells=1,
+                                      zone_values=shrink_classes,
+                                      shrink_method='MORPHOLOGICAL')
+
+            # save cleaned shrunk raster
+            tmp_shk.save(out_ras)
 
     except Exception as e:
         raise e
@@ -271,6 +309,47 @@ def detect_epoch_change(
     return out_from_mid_ras, out_from_to_ras
 
 
+def validate_frac_dates(
+        dates: list,
+        from_year: int,
+        to_year: int,
+        month: int
+) -> tuple[int, int, int]:
+    """
+
+    :param dates:
+    :param from_date:
+    :param to_date:
+    :return:
+    """
+
+    # convert "from" and "to" years and month to string dates
+    from_date = f'{from_year}-{str(month).zfill(2)}'
+    to_date = f'{to_year}-{str(month).zfill(2)}'
+
+    # check if both in dates, all good if so
+    if from_date in dates and to_date in dates:
+        return from_year, to_year, month
+
+    # error if issue is with "from" date, cant do much
+    if from_date not in dates:
+        raise ValueError(f'"From" date {from_date} not in NetCDF. Change "from" year or month.')
+
+    # now try "to" date
+    if to_date not in dates:
+        # create new date string with roll back year
+        new_to_date = f'{to_year - 1}-{str(month).zfill(2)}'
+
+        # roll back a year if missing and warn, else error
+        if new_to_date not in dates:
+            raise ValueError(f'"To" date {to_date} not in NetCDF. Change "to" year or month.')
+        else:
+            arcpy.AddWarning(f'"To" date {to_date} was not in NetCDF. Rolled back a year ({to_year - 1}).')
+            return from_year, to_year - 1, month
+
+    return from_year, to_year, month
+
+
 def threshold_via_zscore(
         in_ras: str,
         z: int,
@@ -312,7 +391,7 @@ def threshold_via_zscore(
     return out_z_pos_ras, out_z_neg_ras
 
 
-def fix_field_names(
+def update_frac_classes(
         in_ras: str
 ) -> None:
     """
@@ -322,51 +401,38 @@ def fix_field_names(
     """
 
     try:
-        # get last three columns (will be other, native, weed)
-        old_fields = arcpy.ListFields(in_ras)
-        old_fields = [field.name for field in old_fields]
-        old_fields = old_fields[-3:]
+        # get raster fields
+        ras_fields = [f.name for f in arcpy.ListFields(in_ras)]
 
-        # add three new fields
-        new_fields = ['other', 'native', 'weed']
-        for field in new_fields:
-            arcpy.management.AddField(in_table=in_ras,
-                                      field_name=field,
-                                      field_type='LONG')
+        # check if direction is pos or neg
+        direction = None
+        for field in ras_fields:
+            if 'native' in field:
+                if 'p_' in field:
+                    direction = 'p_'
+                elif 'n_' in field:
+                    direction = 'n_'
 
-        # move old column values to new columns
-        all_fields = old_fields + new_fields
-        with arcpy.da.UpdateCursor(in_ras, all_fields) as cursor:
-            for row in cursor:
-                row[3] = row[0]  # other
-                row[4] = row[1]  # native
-                row[5] = row[2]  # weed
+        # check we got something back
+        if direction is None:
+            raise ValueError('Could not determine direction from class fields.')
 
-                # update cursor
-                cursor.updateRow(row)
+        # prepare expected field names
+        fields = ['other', 'native', 'weed']
+        fields = [direction + f for f in fields]
 
-        # delete old fields
-        arcpy.management.DeleteField(in_table=in_ras,
-                                     drop_field=old_fields)
+        # now we know direction, check all fields in raster
+        for field in fields:
+            if field not in ras_fields:
+                raise ValueError(f'Could not find field {field} in change raster.')
 
-    except Exception as e:
-        raise e
-
-    return
-
-
-def update_frac_classes(
-        in_ras: str
-) -> None:
-
-    try:
         # add class name field
         arcpy.management.AddField(in_table=in_ras,
                                   field_name='Class_name',
                                   field_type='TEXT')
 
-        # get fields with desired names
-        fields = ['other', 'native', 'weed', 'Class_name']
+        # add to end of expected fields
+        fields = fields + ['Class_name']
 
         # update row values based on value
         with arcpy.da.UpdateCursor(in_ras, fields) as cursor:
@@ -435,7 +501,13 @@ def calc_frac_change_areas(
         in_boundary: str,
         out_csv: str,
 ) -> str:
+    """
 
+    :param in_ras:
+    :param in_boundary:
+    :param out_csv:
+    :return:
+    """
 
     try:
         # get number of pixels per class for gain

@@ -7,10 +7,19 @@ def execute(
 
     import os
     import json
+    import warnings
     import datetime
     import arcpy
 
     from scripts import shared
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
 
     # endregion
 
@@ -142,7 +151,7 @@ def execute(
         boundary_shp = os.path.join(in_out_folder, 'boundary', 'boundary.shp')
         arcpy.management.Project(in_dataset='tmp_diss.shp',
                                  out_dataset=boundary_shp,
-                                 out_coor_system=arcpy.SpatialReference(3577))  # 32750
+                                 out_coor_system=arcpy.SpatialReference(3577))
 
     except Exception as e:
         arcpy.AddError('Could not prepare boundary. See messages.')
@@ -192,7 +201,7 @@ def execute(
         arcpy.management.CompositeBands(in_rasters=list(band_map.values()),
                                         out_raster='tmp_cmp.tif')
 
-        # reproject it to gda 1994 albers using geoprocessor (ia has shift issue)
+        # reproject it to gda94 albers using geoprocessor (ia has shift issue)
         arcpy.management.ProjectRaster(in_raster='tmp_cmp.tif',
                                        out_raster='tmp_rsp.tif',
                                        out_coor_system=arcpy.SpatialReference(3577),
@@ -292,6 +301,9 @@ def execute(
         arcpy.AddError('Could not extract clean bands. See messages.')
         arcpy.AddMessage(str(e))
         return
+
+    # reset progressor
+    arcpy.ResetProgressor()
 
     # endregion
 

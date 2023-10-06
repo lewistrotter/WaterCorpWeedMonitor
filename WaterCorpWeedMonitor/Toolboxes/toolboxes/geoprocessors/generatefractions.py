@@ -7,11 +7,20 @@ def execute(
 
     import os
     import json
+    import warnings
     import numpy as np
     import xarray as xr
     import arcpy
 
     from scripts import uav_fractions, web, shared
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
 
     # endregion
 
@@ -23,8 +32,8 @@ def execute(
     in_flight_datetime = parameters[1].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
-    # in_flight_datetime = '2023-02-02 22:01:00'
+    #in_project_file = r'C:\Users\Lewis\Desktop\testing\lancelin\meta.json'
+    #in_flight_datetime = '2023-09-07 11:00:00'
 
     # endregion
 
@@ -191,10 +200,10 @@ def execute(
         arcpy.AddMessage(str(e))
         return
 
-    # check if downloads returned, else leave
+    # check if downloads returned (should always find something), else leave
     if len(downloads) == 0:
-        arcpy.AddWarning('No valid satellite downloads were found.')
-        return  # TODO: carry on in case fractionals remain unprocessed?
+        arcpy.AddError('No valid satellite downloads found. Check your firewall.')
+        return
 
     # endregion
 
@@ -207,8 +216,8 @@ def execute(
         # download everything and return success or fail statuses
         results = web.quick_download(downloads=downloads,
                                      quality_flags=[1],
-                                     max_out_of_bounds=1,
-                                     max_invalid_pixels=1,
+                                     max_out_of_bounds=30,
+                                     max_invalid_pixels=30,
                                      nodata_value=-999)
 
     except Exception as e:
@@ -216,11 +225,14 @@ def execute(
         arcpy.AddMessage(str(e))
         return
 
-    # check if any valid downloads (non-cloud or new)
+    # count number of valid downloads returned
     num_valid_downloads = len([dl for dl in results if 'success' in dl])
+
+    # check if any valid downloads (non-cloud or new)
+    new_downloads = True
     if num_valid_downloads == 0:
         arcpy.AddMessage('No new valid satellite downloads were found. Checking fractions.')
-        return  # TODO: carry on in case fractionals remain unprocessed?
+        new_downloads = False
 
     # endregion
 
@@ -229,10 +241,11 @@ def execute(
 
     arcpy.SetProgressor('default', 'Validating Sentinel 2 data...')
 
-    # check results for errors and delete errorneous nc files
     try:
-        web.delete_error_downloads(results=results,
-                                   nc_folder=raw_ncs_folder)
+        # check results for errors and delete errorneous nc files
+        if new_downloads:
+            web.delete_error_downloads(results=results,
+                                       nc_folder=raw_ncs_folder)
 
     except Exception as e:
         arcpy.AddError('Unable to delete errorneous Sentinel 2 data. See messages.')
@@ -282,16 +295,17 @@ def execute(
         # set nodata (-999) to nan
         ds = ds.where(ds != -999)
 
-        # set pixel to nan when any band has outlier within pval 0.001 per date
-        # TODO: check this func isnt setting all pixels nan when outlier
+        # set pixel to nan when any band has outlier within pval 0.0001 (z = 4) per date
         ds = uav_fractions.remove_xr_outliers(ds=ds,
-                                              max_z_value=3.29)
+                                              max_z_value=4.0)
 
         # resample to monthly medians and interpolate nan
         ds = uav_fractions.resample_xr_monthly_medians(ds=ds)
 
-        # TODO: back and forward fill
-        # ...
+        # fill in nan values
+        ds = ds.interpolate_na(dim='time',
+                               method='linear',
+                               fill_value='extrapolate')
 
         # append attributes back on
         ds.attrs = ds_attrs
@@ -464,6 +478,7 @@ def execute(
             frac_ncs = []
             classes = {'c_0': 'other', 'c_1': 'native', 'c_2': 'weed'}
             for val, dsc in classes.items():
+
                 # perform gwr via rois shapefile
                 tmp_gwr_csv = os.path.join(fraction_folder, f'acc_{dsc}.csv')
                 uav_fractions.gwr(in_rois=tmp_roi,
@@ -471,6 +486,13 @@ def execute(
                                   classdesc=dsc,
                                   out_prediction_shp='tmp_gwr.shp',
                                   out_accuracy_csv=tmp_gwr_csv)
+
+                # enable this, disable gwr to switch between
+                # uav_fractions.old_regress(in_rois=tmp_roi,
+                #                           classvalue=val,
+                #                           classdesc=dsc,
+                #                           out_regress_shp='tmp_gwr.shp',
+                #                           out_accuracy_csv=tmp_gwr_csv)
 
                 # force prediction values to 0 - 1
                 uav_fractions.force_pred_zero_to_one(in_shp='tmp_gwr.shp')

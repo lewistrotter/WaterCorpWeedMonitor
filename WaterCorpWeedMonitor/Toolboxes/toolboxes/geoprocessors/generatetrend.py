@@ -1,7 +1,6 @@
 
 def execute(
         parameters
-        # messages # TODO: implement
 ):
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region IMPORTS
@@ -9,10 +8,19 @@ def execute(
     import os
     import json
     import datetime
+    import warnings
     import numpy as np
     import arcpy
 
     from scripts import trends, shared
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
 
     # endregion
 
@@ -23,11 +31,17 @@ def execute(
     in_project_file = parameters[0].valueAsText
     in_flight_datetime = parameters[1].value
     in_rehab_or_capture_month = parameters[2].value
+    in_manual_year = parameters[3].value
+    in_manual_month = parameters[4].value
+    in_export_raw_fractions = parameters[5].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
-    # in_flight_datetime = '2023-02-02 16:29:52'
-    # in_rehab_or_capture_month = 'Month of Rehabilitation'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing\goegrup\meta.json'
+    # in_flight_datetime = '2022-12-15 11:00:00'
+    # in_rehab_or_capture_month = 'Month of First UAV Capture'  # 'Month of Rehabilitation'
+    # in_manual_year = 2018
+    # in_manual_month = 3
+    # in_export_raw_fractions = True
 
     # endregion
 
@@ -86,7 +100,7 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing workspace...')
 
-    # create temp folder, if does not already exist
+    # create temp folder if does not already exist
     tmp = os.path.join(in_project_folder, 'tmp')
     if not os.path.exists(tmp):
         os.mkdir(tmp)
@@ -167,7 +181,7 @@ def execute(
     # get list of prior processed year-month fractional folders
     valid_fractions = meta_item.get('fractions')
     if valid_fractions is None:
-        arcpy.AddError('No fraction list detected.')
+        arcpy.AddError('No fraction list detected. Run fraction tool first.')
         return
 
     # get paths of all netcdfs
@@ -193,6 +207,9 @@ def execute(
         # read and concatnate all netcdfs into one
         ds = shared.concat_netcdf_files(clean_ncs)
 
+        # do interp to be safe no nans exist at non-edge pixels
+        ds = ds.interpolate_na('time')
+
     except Exception as e:
         arcpy.AddError('Could not read all fraction NetCDFs. See messages.')
         arcpy.AddMessage(str(e))
@@ -217,8 +234,9 @@ def execute(
 
     # correct rehab year if < 2016
     if rehab_year < 2016:
-        arcpy.AddWarning('Start of rehab < Sentinel 2 data start, using 2016.')
         rehab_year = 2016
+        if in_rehab_or_capture_month == 'Month of Rehabilitation':
+            arcpy.AddWarning('Start of rehab < Sentinel 2 data start, using 2016.')
 
     # get capture year and month
     capture_month = int(in_flight_datetime.split('-')[1])
@@ -229,6 +247,8 @@ def execute(
         year, month = rehab_year, rehab_month
     elif in_rehab_or_capture_month == 'Month of First UAV Capture':
         year, month = rehab_year, capture_month
+    elif in_rehab_or_capture_month == 'Manual':
+        year, month = in_manual_year, in_manual_month
 
     try:
         # extract specific month from dataset
@@ -275,7 +295,8 @@ def execute(
             da = ds[[var]]
 
             # create trend rgb xr
-            ds_tnd = trends.generate_trend_rgb_xr(ds=da, var_name=var)
+            ds_tnd = trends.generate_trend_rgb_xr(ds=da,
+                                                  var_name=var)
 
             # convert trend vars to rgb rasters
             tmp_rgb = shared.multi_band_xr_to_raster(da=ds_tnd,
@@ -285,7 +306,7 @@ def execute(
             out_rgb = os.path.join(trends_folder, f'rgb_{var}.tif')
             tmp_rgb.save(out_rgb)
 
-            # # add result to dictionary
+            # add result to dictionary
             trend_rgbs[var] = out_rgb
 
             # increment progressor
@@ -309,7 +330,7 @@ def execute(
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region ADD TREND RGB LAYERS TO ACTIVE MAP
 
-    arcpy.SetProgressor('default', 'Visualising result...')
+    arcpy.SetProgressor('default', 'Visualising RGB trend result...')
 
     # build visualise folder path and
     visualise_folder = os.path.join(in_project_folder, 'visualise')
@@ -330,7 +351,33 @@ def execute(
             shared.add_raster_to_map(in_ras=out_tif)
 
     except Exception as e:
-        arcpy.AddWarning('Could not visualise Trend RGB image. See messages.')
+        arcpy.AddWarning('Could not visualise Trend RGB images. See messages.')
+        arcpy.AddMessage(str(e))
+        pass
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region ADD FRACTION TIME-SERIES TO ACTIVE MAP
+
+    arcpy.SetProgressor('default', 'Visualising subset time-series result...')
+
+    try:
+        if in_export_raw_fractions:
+            # export subset netcdf
+            tmp_frc_nc = os.path.join(tmp, f'frc_all.nc')
+            ds.to_netcdf(tmp_frc_nc)
+
+            # convert to crf
+            out_crf = os.path.join(visualise_folder, f'frc_all_{flight_date}.crf')
+            shared.netcdf_to_crf(in_nc=tmp_frc_nc,
+                                 out_crf=out_crf)
+
+            # add crf to map
+            shared.add_raster_to_map(in_ras=out_crf)
+
+    except Exception as e:
+        arcpy.AddWarning('Could not visualise subset time-series images. See messages.')
         arcpy.AddMessage(str(e))
         pass
 

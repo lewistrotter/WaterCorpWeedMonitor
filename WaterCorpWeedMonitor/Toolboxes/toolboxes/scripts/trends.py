@@ -3,12 +3,7 @@ import os
 import numpy as np
 import xarray as xr
 
-from scipy.stats import kendalltau
 
-from scripts import shared
-
-
-# deprecated
 def get_opcs(n):
     if n == 3:
         slope = [-1, 0, 1]
@@ -66,12 +61,10 @@ def get_opcs(n):
     return slope, lin_ss, lin_c, curve, crv_ss, crv_c
 
 
-# deprecated
 def apply_fit(vec, coeffs, ss, c):
     return np.sum((vec * coeffs)) / ss * c
 
 
-# deprecated
 def generate_trend_rgb_xr(
         ds: xr.Dataset,
         var_name: str
@@ -109,9 +102,9 @@ def generate_trend_rgb_xr(
                                 kwargs=kwargs)
 
         # modify to highlight inc, dec and recovery trends
-        da_inc = (da_slp > 0) * np.abs(da_slp)  # # was <
-        da_dec = (da_slp < 0) * np.abs(da_slp)  # pos values are decreasing trend # was >
-        da_rec = (da_crv > 0) * np.abs(da_crv)  # recent recovery has neg curve # was <
+        da_inc = (da_slp > 0) * np.abs(da_slp)  # inverse index is <
+        da_dec = (da_slp < 0) * np.abs(da_slp)  # inverse index is >
+        da_rec = (da_crv > 0) * np.abs(da_crv)  # inverse index is <
 
         # standardise to 0-255
         da_inc = (da_inc / da_inc.max() * 255)

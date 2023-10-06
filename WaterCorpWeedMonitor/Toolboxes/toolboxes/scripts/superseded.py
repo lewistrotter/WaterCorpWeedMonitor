@@ -1418,3 +1418,94 @@
 
 # increment progressor
 # arcpy.SetProgressorPosition()
+
+# def remove_uav_noise(
+#         in_ras: str,
+#         chg_attrs: list,
+#         out_ras: str
+# ) -> str:
+#     """
+#     Takes a classified UAV raster and applies
+#     majority filter to it to remove speckles.
+#
+#     :param in_ras: Path to classified UAV raster.
+#     :param chg_attrs: List of raster value and change name dicts.
+#     :param out_ras: Path to output clean classified UAV raster.
+#     :return: Path of output clean classified UAV raster.
+#     """
+#
+#     try:
+#         # apply a 5x5 majority focal window filter to remove noise
+#         win = arcpy.sa.NbrRectangle(5, 5, 'CELL')
+#         tmp_maj = arcpy.sa.FocalStatistics(in_ras, win, 'MAJORITY')
+#
+#         # save cleaned classified raster
+#         tmp_maj.save(out_ras)
+#
+#         # extract all non "no change" classes
+#         shrink_classes = []
+#         for item in chg_attrs:
+#             if item['Class_name'] != 'No Change':
+#                 shrink_classes.append(item['Value'])
+#
+#         if len(shrink_classes) > 0:
+#             # shrink filtered raster by 1 pixel if we have no change
+#             tmp_shk = arcpy.sa.Shrink(in_raster=tmp_maj,
+#                                       number_cells=1,
+#                                       zone_values=shrink_classes,
+#                                       shrink_method='MORPHOLOGICAL')
+#
+#             # save cleaned shrunk raster
+#             tmp_shk.save(out_ras)
+#
+#     except Exception as e:
+#         raise e
+#
+#     return out_ras
+
+# def fix_field_names(
+#         in_ras: str
+# ) -> None:
+#     """
+#
+#     :param in_ras:
+#     :return:
+#     """
+#
+#     try:
+#         # get last three columns (will be other, native, weed)
+#         old_fields = arcpy.ListFields(in_ras)
+#         old_fields = [field.name for field in old_fields]
+#
+#         # extract only the change fields per class
+#         class_fields = []
+#         for field in old_fields:
+#             if 'p_' in field or 'n_' in field:
+#                 class_fields.append(field)
+#
+#         # add three new fields
+#         new_fields = ['other', 'native', 'weed']
+#         for field in new_fields:
+#             arcpy.management.AddField(in_table=in_ras,
+#                                       field_name=field,
+#                                       field_type='LONG')
+#
+#         # move old column values to new columns
+#         all_fields = old_fields + new_fields
+#         with arcpy.da.UpdateCursor(in_ras, all_fields) as cursor:
+#             for row in cursor:
+#                 row[3] = row[0]  # other
+#                 row[4] = row[1]  # native
+#                 row[5] = row[2]  # weed
+#
+#                 # update cursor
+#                 cursor.updateRow(row)
+#
+#         # delete old fields
+#         arcpy.management.DeleteField(in_table=in_ras,
+#                                      drop_field=old_fields)
+#
+#     except Exception as e:
+#         raise e
+#
+#     return

@@ -63,7 +63,7 @@
         <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
           <tooltip heading="Generate Trend">Generates polynomial trend through fractional time series layers.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_DetectUAVChange" caption="Detect UAV Change" className="DetectUAVChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue32.png">
+        <button id="WaterCorpWeedMonitor_DetectUAVChange" caption="Detect UAV Change" className="DetectUAVChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/SyncExtent32.png">
           <tooltip heading="Detect UAV Change">Detect from-to changes for Native, Weed and Other classes between UAV captures.<disabledText /></tooltip>
         </button>
 		<button id="WaterCorpWeedMonitor_DetectFractionChange" caption="Detect Fraction Change" className="DetectFractionChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue32.png">

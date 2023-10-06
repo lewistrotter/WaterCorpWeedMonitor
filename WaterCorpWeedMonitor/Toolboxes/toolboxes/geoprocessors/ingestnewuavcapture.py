@@ -7,10 +7,19 @@ def execute(
 
     import os
     import json
+    import warnings
     import datetime
     import arcpy
 
     from scripts import shared
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
 
     # endregion
 
@@ -304,6 +313,9 @@ def execute(
         arcpy.AddError('Could not extract clean bands. See messages.')
         arcpy.AddMessage(str(e))
         return
+
+    # reset progressor
+    arcpy.ResetProgressor()
 
     # endregion
 

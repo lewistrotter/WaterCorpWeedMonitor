@@ -26,7 +26,15 @@
     <None Remove="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <None Remove="Toolboxes\toolboxes\scripts\uav_fractions.py" />
     <None Remove="Toolboxes\toolboxes\scripts\web.py" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.ClassifyUAVCapture.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.CreateNewSite.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.DetectFractionChange.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.DetectUAVChange.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.GenerateFractions.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.GenerateTrend.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.IngestNewUAVCapture.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.pyt" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.pyt.xml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Config.daml" />
@@ -51,7 +59,15 @@
     <Content Include="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <Content Include="Toolboxes\toolboxes\scripts\uav_fractions.py" />
     <Content Include="Toolboxes\toolboxes\scripts\web.py" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.ClassifyUAVCapture.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.CreateNewSite.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.DetectFractionChange.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.DetectUAVChange.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.GenerateFractions.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.GenerateTrend.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.IngestNewUAVCapture.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.pyt" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.pyt.xml" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ArcGIS.Desktop.Framework">

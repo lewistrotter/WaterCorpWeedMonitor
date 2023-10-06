@@ -7,11 +7,20 @@ def execute(
 
     import os
     import json
+    import warnings
     import pandas as pd
     import numpy as np
     import arcpy
 
     from scripts import uav_classify, shared  # glcm
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
 
     # endregion
 
@@ -285,7 +294,7 @@ def execute(
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region CALCULATE GLCM TEXTURES
 
-    arcpy.SetProgressor('default', 'Calculating GLCM textures...')
+    arcpy.SetProgressor('default', 'Calculating textures...')
 
     # create texture indices map to maintain band order
     tmp_map = {
@@ -318,7 +327,7 @@ def execute(
             # setup neighbourhood object
             win = arcpy.sa.NbrRectangle(5, 5, 'CELL')
 
-            # calculate glcm textures... can take awhile!
+            # calculate glcm textures... disabled, were not worth processing time
             #glcm.quick_glcm(in_gray_ras='tmp_gry.tif',
                             #textures_map=tx_map,
                             #levels=18,
@@ -370,7 +379,7 @@ def execute(
                 arcpy.SetProgressorPosition()
 
         except Exception as e:
-            arcpy.AddError('Could not calculate textures indices. See messages.')
+            arcpy.AddError('Could not calculate textures. See messages.')
             arcpy.AddMessage(str(e))
             return
 
