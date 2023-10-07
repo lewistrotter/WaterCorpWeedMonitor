@@ -91,13 +91,13 @@ def CreateNewSite(in_output_folder=None, in_boundary_feat=None, in_rehab_datetim
         raise e
 
 @gptooldoc('DetectFractionChange_WCMonitor', None)
-def DetectFractionChange(in_project_file=None, in_capture_datetime=None, in_s2_from_year=None, in_s2_to_year=None, in_s2_month=None):
-    """DetectFractionChange_WCMonitor(in_project_file, in_capture_datetime, in_s2_from_year, in_s2_to_year, in_s2_month)
+def DetectFractionChange(in_project_file=None, in_capture_datetime=None, in_from_year=None, in_manual_from_year=None, in_to_year=None, in_manual_to_year=None, in_month=None, in_manual_month=None, in_z=None):
+    """DetectFractionChange_WCMonitor(in_project_file, in_capture_datetime, in_from_year, in_manual_from_year, in_to_year, in_manual_to_year, in_month, in_manual_month, in_z)
 
         Perform a change detection between two fractional cover dates.
-        Significant positive and negative changes between the two fraction
-        images are then obtained using a global Z-Score method to detect
-        outliers.
+        Gains and losses for natives, weeds and other classes found between
+        the two fraction image dates are obtained using a global Z-Score
+        method to detect outliers.
 
      INPUTS:
       in_project_file (File):
@@ -109,17 +109,37 @@ def DetectFractionChange(in_project_file=None, in_capture_datetime=None, in_s2_f
           previously generated for, based on the date and time it was flown. If
           fractional cover images have not been generated yet, run the "Generate
           Fractions" tool first.
-      in_s2_from_year (Long):
-          Set the "baseline" fractional cover image year.
-      in_s2_to_year (Long):
-          Set the "to" fractional cover image year. This will be compared to
-          the "from" or "baseline" fractional cover image.
-      in_s2_month (Long):
-          Set the month of the fractional cover images to assess change for."""
+      in_from_year (String):
+          Set the "from" year to use for change detection analysis. The year
+          that rehabilitation began at the site is the default. Use the manual
+          option to set a specific "from" year.
+      in_manual_from_year (Long):
+          Set the "from" year manually. Must be &gt;= 2016.
+      in_to_year (String):
+          Set the "to" year to use for change detection analysis. The current
+          year is the default. If the current year does not have the requested
+          month below yet, will roll back a year. Use the manual option to set a
+          specific "to" year. <SPAN />
+      in_manual_to_year (Long):
+          Set the "to" year manually. Must be &gt; the "from" year. <SPAN />
+      in_month (String):
+          Set the month to compare images on during change detection
+          analysis. The default is the month rehabilitation commenced. Manually
+          override the month using the manual option.
+      in_manual_month (Long):
+          Set a specific month for change detection.
+      in_z (Long):
+          Set the z-score threshold to use for separating change into
+          "significant" and "insignificant". The z-score value represents
+          standard deviation. For example, a z-score of 2 will highlight any
+          native or weed change &gt;2 standard deviations of the typical change
+          values occurring on the imagery. The higher the z-score value, the
+          more significant the change has to be in order to be returned on
+          output. Must be between 1 and 3 (inclusive)."""
     from arcpy.geoprocessing._base import gp, gp_fixargs
     from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
     try:
-        retval = convertArcObjectToPythonObject(gp.DetectFractionChange_WCMonitor(*gp_fixargs((in_project_file, in_capture_datetime, in_s2_from_year, in_s2_to_year, in_s2_month), True)))
+        retval = convertArcObjectToPythonObject(gp.DetectFractionChange_WCMonitor(*gp_fixargs((in_project_file, in_capture_datetime, in_from_year, in_manual_from_year, in_to_year, in_manual_to_year, in_month, in_manual_month, in_z), True)))
         return retval
     except Exception as e:
         raise e

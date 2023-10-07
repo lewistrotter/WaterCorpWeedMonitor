@@ -1,4 +1,6 @@
 
+import os
+import numpy as np
 import pandas as pd
 import arcpy
 
@@ -307,6 +309,108 @@ def detect_epoch_change(
         raise e
 
     return out_from_mid_ras, out_from_to_ras
+
+
+def get_closest_dates(
+        dates: list,
+        focus_date: str
+) -> list:
+    """
+
+    :param dates:
+    :param focus_date:
+    :return:
+    """
+
+    # convert to numpy array
+    if isinstance(dates, list):
+        dates = np.array(dates)
+
+    # pad edges with empties so we can remove if needed
+    dates = np.pad(dates, (1, 1), constant_values=('', ''))
+
+    try:
+        # get index of focus date (center)
+        c = np.where(dates == focus_date)[0]
+
+        # get dates at immediate l, r via roll
+        l = str(np.roll(dates, 1)[c][0])
+        r = str(np.roll(dates, -1)[c][0])
+
+        # init result
+        result = []
+
+        # add left date if not empty
+        if l != '':
+            result.append(l)
+
+        # same for right date
+        if r != '':
+            result.append(r)
+
+    except Exception as e:
+        raise e
+
+    return result
+
+
+def get_mean_frac_raster(
+        dates: list,
+        frac_class: str,
+        frac_folder: str,
+        out_ras: str
+) -> str:
+    """
+
+    :param dates:
+    :param fraction_class:
+    :param fraction_folder:
+    :return:
+    """
+
+    try:
+        # iter each frac date...
+        rasters = []
+        for date in dates:
+            # construct folder path
+            folder = os.path.join(frac_folder, date)
+
+            # prepare expected frac raster path
+            fn = date.replace('-', '_')
+            fn = f'{fn}_{frac_class}.tif'
+            fn = os.path.join(folder, fn)
+
+            # check if exists
+            if not os.path.exists(fn):
+                raise ValueError(f'Fraction raster {date} missing.')
+
+            # if exists, read raster and append
+            ras = arcpy.Raster(fn)
+            rasters.append(ras)
+
+        # if nothing returned, error
+        if len(rasters) == 0:
+            raise ValueError('No rasters to combine.')
+
+        # get mean of all rasters
+        ras_avg = arcpy.sa.CellStatistics(in_rasters_or_constants=rasters,
+                                          statistics_type='MEAN')
+
+        # save to output folder
+        ras_avg.save(out_ras)
+
+    except Exception as e:
+        raise e
+
+    return out_ras
+
+
+
+
+
+
+
+
 
 
 def validate_frac_dates(

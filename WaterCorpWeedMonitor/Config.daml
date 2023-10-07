@@ -66,7 +66,7 @@
         <button id="WaterCorpWeedMonitor_DetectUAVChange" caption="Detect UAV Change" className="DetectUAVChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/SyncExtent32.png">
           <tooltip heading="Detect UAV Change">Detect from-to changes for Native, Weed and Other classes between UAV captures.<disabledText /></tooltip>
         </button>
-		<button id="WaterCorpWeedMonitor_DetectFractionChange" caption="Detect Fraction Change" className="DetectFractionChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue32.png">
+		<button id="WaterCorpWeedMonitor_DetectFractionChange" caption="Detect Fraction Change" className="DetectFractionChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/SyncTime32.png">
 		  <tooltip heading="Detect Fraction Change">Detect from-to changes for Native, Weed and Other fractions between dates.<disabledText /></tooltip>
 		</button>
 		<button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">

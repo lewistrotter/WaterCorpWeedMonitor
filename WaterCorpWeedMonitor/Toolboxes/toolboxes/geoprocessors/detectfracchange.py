@@ -28,24 +28,26 @@ def execute(
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    # in_project_file = parameters[0].valueAsText
-    # in_flight_datetime = parameters[1].valueAsText
-    # in_from_year = parameters[2].valueAsText
-    # in_manual_from_year = parameters[3].value
-    # in_to_year = parameters[4].valueAsText
-    # in_manual_to_year = parameters[5].value
-    # in_month = parameters[6].valueAsText
-    # in_manual_month = parameters[7].value
+    in_project_file = parameters[0].valueAsText
+    in_flight_datetime = parameters[1].valueAsText
+    in_from_year = parameters[2].valueAsText
+    in_manual_from_year = parameters[3].value
+    in_to_year = parameters[4].valueAsText
+    in_manual_to_year = parameters[5].value
+    in_month = parameters[6].valueAsText
+    in_manual_month = parameters[7].value
+    in_z = parameters[8].value
 
     # inputs for testing only
-    in_project_file = r'C:\Users\Lewis\Desktop\testing\goegrup\meta.json'
-    in_flight_datetime = '2022-12-15 11:00:00'
-    in_from_year = 'Manual'  # 'Year of Rehabilitation'  # 'Manual'
-    in_manual_from_year = 2016
-    in_to_year = 'Current Year'  # 'Manual'
-    in_manual_to_year = 2023
-    in_month = 'Manual'  #'Month of Rehabilitation'  # 'Manual'
-    in_manual_month = 12 # 6
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing\goegrup\meta.json'
+    # in_flight_datetime = '2022-12-15 11:00:00'
+    # in_from_year = 'Manual'  # 'Year of Rehabilitation'  # 'Manual'
+    # in_manual_from_year = 2016
+    # in_to_year = 'Current Year'  # 'Manual'
+    # in_manual_to_year = 2023
+    # in_month = 'Manual'  #'Month of Rehabilitation'  # 'Manual'
+    # in_manual_month = 3 # 6
+    # in_z = 2
 
     # endregion
 
@@ -262,31 +264,58 @@ def execute(
     from_date = f'{from_year}-{str(month).zfill(2)}'
     to_date = f'{to_year}-{str(month).zfill(2)}'
 
-    # get paths for from and to folders
-    from_folder = os.path.join(fraction_folder, from_date)
-    to_folder = os.path.join(fraction_folder, to_date)
+    try:
+        # get nearest dates to left, right of "from" date
+        from_dates_l_r = change.get_closest_dates(dates=valid_frac_dates,
+                                                  focus_date=from_date)
 
-    # check both actually exist
-    for folder in [from_folder, to_folder]:
+        # get nearest dates to left, right of "to" date
+        to_dates_l_r = change.get_closest_dates(dates=valid_frac_dates,
+                                                focus_date=to_date)
+
+    except Exception as e:
+        arcpy.AddError('Left, right dates from fraction NetCDFs missing. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    # create from and to date lists
+    from_dates = [from_date] + from_dates_l_r
+    to_dates = [to_date] + to_dates_l_r
+
+    # check all returned dates have fraction folders
+    for date in from_dates + to_dates:
+        folder = os.path.join(fraction_folder, date)
         if not os.path.exists(folder):
-            arcpy.AddError(f'Fraction folder could not be found.')
-            return
+            raise ValueError(f'Fraction folder {date} missing.')
 
     # create fraction "from", "to" maps
     from_map, to_map = {}, {}
 
     try:
-        # populate maps with fraction class rasters
-        folders = [from_folder, to_folder]
-        maps = [from_map, to_map]
-        for folder, var_map in zip(folders, maps):
-            for file in os.listdir(folder):
-                if file.endswith('.tif'):
-                    var = file.split('.')[0].split('_')[-1]
-                    var_map[var] = os.path.join(folder, file)
+        # construct average "from" rasters per class
+        for cls in ['other', 'native', 'weed']:
+            # build mean raster from all dates
+            tmp_from_avg = f'tmp_from_mean_{cls}.tif'
+            change.get_mean_frac_raster(dates=from_dates,
+                                        frac_class=cls,
+                                        frac_folder=fraction_folder,
+                                        out_ras=tmp_from_avg)
+
+            # add raster path to map
+            from_map[cls] = tmp_from_avg
+
+            # build mean raster from all dates
+            tmp_to_avg = f'tmp_to_mean_{cls}.tif'
+            change.get_mean_frac_raster(dates=to_dates,
+                                        frac_class=cls,
+                                        frac_folder=fraction_folder,
+                                        out_ras=tmp_to_avg)
+
+            # add raster path to map
+            to_map[cls] = tmp_to_avg
 
     except Exception as e:
-        arcpy.AddError('Could not obtain fraction rasters. See messages.')
+        arcpy.AddError('Could not create mean fraction raster. See messages.')
         arcpy.AddMessage(str(e))
         return
 
@@ -301,6 +330,11 @@ def execute(
     # region PERFORM FROM-TO CHANGE CLASSIFICATION
 
     arcpy.SetProgressor('default', 'Performing change detection...')
+
+    # check z value is appropriate
+    z = in_z
+    if z < 1 or z > 3:
+        raise ValueError('Z-score threshold must be between 1 and 3.')
 
     try:
         # iter each var...
@@ -318,7 +352,7 @@ def execute(
             # threshold change into zscore where z < -2 or > 2
             tmp_pos, tmp_neg = f'p_{var}.tif', f'n_{var}.tif'  # f'tmp_z_pos_{var}.tif', f'tmp_z_neg_{var}.tif'
             change.threshold_via_zscore(in_ras=tmp_chg,
-                                        z=2,
+                                        z=z,
                                         out_z_pos_ras=tmp_pos,
                                         out_z_neg_ras=tmp_neg)
 
@@ -350,7 +384,7 @@ def execute(
     try:
         # iter each frac class...
         chg_map = {}
-        for dir, item in zip(['gain', 'loss'], [pos_chg_map, neg_chg_map]):
+        for direction, item in zip(['gain', 'loss'], [pos_chg_map, neg_chg_map]):
             # unpack map paths
             tmp_other = item['other']
             tmp_native = item['native']
@@ -360,7 +394,7 @@ def execute(
             ras_cmb = arcpy.sa.Combine([tmp_other, tmp_native, tmp_weed])
 
             # set output file name and path and save
-            out_fn = f'change_frc_{dir}_{date_from}_to_{date_to}.tif'
+            out_fn = f'change_frc_{direction}_{date_from}_to_{date_to}.tif'
             out_cmb = os.path.join(change_folder, out_fn)
             ras_cmb.save(out_cmb)
 
@@ -368,7 +402,7 @@ def execute(
             change.update_frac_classes(in_ras=out_cmb)
 
             # add to final change map
-            chg_map[dir] = out_cmb
+            chg_map[direction] = out_cmb
 
     except Exception as e:
         arcpy.AddError('Could not combine fractional change data. See messages.')
@@ -462,6 +496,8 @@ def execute(
     try:
         # drop temp files (free up space)
         del ras_cmb
+        del tmp_gain
+        del tmp_loss
 
     except Exception as e:
         arcpy.AddWarning('Could not drop temporary files. See messages.')
@@ -484,11 +520,4 @@ def execute(
     return
 
 # testing
-execute(None)
-
-
-
-
-
-
-
+#execute(None)
