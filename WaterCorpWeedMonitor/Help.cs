@@ -27,7 +27,7 @@ namespace WaterCorpWeedMonitor
             try
             {
                 // open system browser to github page
-                string url = "https://github.com/lewistrotter/WCMonitor";
+                string url = "https://github.com/lewistrotter/WaterCorpWeedMonitor";
                 var process = new ProcessStartInfo(url) { UseShellExecute = true };
                 System.Diagnostics.Process.Start(process);
             }
