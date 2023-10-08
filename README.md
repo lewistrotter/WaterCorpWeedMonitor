@@ -5,7 +5,7 @@ Welcome to the website of the Water Corporation Monitor ArcGIS Pro plug-in. Plea
 TODO
 
 ## Literature
-We are currently in the process of writing a peer-reviewed journal article outlining the methodology and performance of the concepts used in this plug-in.
+We are currently in the process of writing a peer-reviewed journal article outlining the methodology and performance of the concepts used in this plug-in. This section will be updated when accepted by the journal.
 
 ## Requirements
 - ArcGIS Pro 3.0 or above.
