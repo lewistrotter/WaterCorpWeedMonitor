@@ -587,8 +587,13 @@ def execute(
             tmp_frc_nc = os.path.join(tmp, f'frc_{var}.nc')
             ds[[var]].to_netcdf(tmp_frc_nc)
 
-            # convert to crf
+            # create crf path to visualise folder
             out_crf = os.path.join(visualise_folder, f'frc_{var}_{flight_date}.crf')
+
+            # delete previously created visual crf
+            shared.delete_visual_rasters(rasters=[out_crf])
+
+            # re-save it
             shared.netcdf_to_crf(in_nc=tmp_frc_nc,
                                  out_crf=out_crf)
 

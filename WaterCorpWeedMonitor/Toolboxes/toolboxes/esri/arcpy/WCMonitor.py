@@ -2,7 +2,7 @@
 r""""""
 __all__ = ['ClassifyUAVCapture', 'CreateNewSite', 'DetectFractionChange',
            'DetectUAVChange', 'DisplayData', 'GenerateFractions',
-           'GenerateTrend', 'IngestNewUAVCapture', 'Testing']
+           'GenerateNDVI', 'GenerateTrend', 'IngestNewUAVCapture', 'Testing']
 __alias__ = 'WCMonitor'
 from arcpy.geoprocessing._base import gptooldoc, gp, gp_fixargs
 from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
@@ -224,6 +224,31 @@ def GenerateFractions(in_project_file=None, in_capture_datetime=None):
     from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
     try:
         retval = convertArcObjectToPythonObject(gp.GenerateFractions_WCMonitor(*gp_fixargs((in_project_file, in_capture_datetime), True)))
+        return retval
+    except Exception as e:
+        raise e
+
+@gptooldoc('GenerateNDVI_WCMonitor', None)
+def GenerateNDVI(in_project_file=None, in_freq=None):
+    """GenerateNDVI_WCMonitor(in_project_file, in_freq)
+
+        Generate NDVI time-series data for a site based on previously
+        obtained Sentinel 2 data. Run the Generate Fractions tool prior to
+        using this to obtain Sentinel 2 data.
+
+     INPUTS:
+      in_project_file (File):
+          Every site has a unique meta.json file in its project folder. Find
+          and select this file to set the current site containing the UAV image
+          you want to generate fraction models for.
+      in_freq (String):
+          Select the temporal frequency in which NDVI time-series data will be
+          presented. Raw NDVI data will be aggregated to this frequency via
+          median aggregator."""
+    from arcpy.geoprocessing._base import gp, gp_fixargs
+    from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
+    try:
+        retval = convertArcObjectToPythonObject(gp.GenerateNDVI_WCMonitor(*gp_fixargs((in_project_file, in_freq), True)))
         return retval
     except Exception as e:
         raise e

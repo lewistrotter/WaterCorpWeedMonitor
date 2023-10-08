@@ -697,8 +697,11 @@ def execute(
         # get flight date code
         flight_date = meta_item['capture_folder']
 
-        # save uav rgb raster to visualise folder
+        # create uav rgb classified path to visualise folder
         out_tif = os.path.join(visualise_folder, 'uav_classified' + '_' + flight_date + '.tif')
+
+        # delete previously created visual raster and re-save
+        shared.delete_visual_rasters(rasters=[out_tif])
         tmp_cls.save(out_tif)
 
         # visualise it on active map and symbolise it to class colors

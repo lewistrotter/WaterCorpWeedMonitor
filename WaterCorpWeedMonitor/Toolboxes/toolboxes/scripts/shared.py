@@ -733,3 +733,26 @@ def apply_fraction_layer_symbology(
     arcpy.env.addOutputsToMap = False
 
     return
+
+
+def delete_visual_rasters(
+        rasters: list
+) -> None:
+    """
+
+    :param rasters:
+    :return:
+    """
+
+    # force input to be list
+    if not isinstance(rasters, list):
+        rasters = [rasters]
+
+    # iterate rasters and delete, ignore errors
+    for raster in rasters:
+        try:
+            arcpy.management.Delete(raster)
+        except:
+            pass
+
+    return

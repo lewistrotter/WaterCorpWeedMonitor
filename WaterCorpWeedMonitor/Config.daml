@@ -19,6 +19,7 @@
           <group refID="WaterCorpWeedMonitor_Group4" />
           <group refID="WaterCorpWeedMonitor_Group5" />
           <group refID="WaterCorpWeedMonitor_Group6" />
+          <group refID="WaterCorpWeedMonitor_Group7" />
         </tab>
       </tabs>
       <groups>
@@ -36,47 +37,53 @@
         </group>
         <group id="WaterCorpWeedMonitor_Group4" caption="Change" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_DetectUAVChange" size="large" />
-		  <button refID="WaterCorpWeedMonitor_DetectFractionChange" size="large" />
+          <button refID="WaterCorpWeedMonitor_DetectFractionChange" size="large" />
         </group>
-        <group id="WaterCorpWeedMonitor_Group5" caption="Visualisation" appearsOnAddInTab="false">
+        <group id="WaterCorpWeedMonitor_Group5" caption="Vegetation" appearsOnAddInTab="false">
+          <button refID="WaterCorpWeedMonitor_GenerateNDVI" size="large" />
+        </group>
+        <group id="WaterCorpWeedMonitor_Group6" caption="Visualise" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_DisplayData" size="large" />
-          <button refID="WaterCorpWeedMonitor_GraphFractions" size="large" />
         </group>
-        <group id="WaterCorpWeedMonitor_Group6" caption="Testing" appearsOnAddInTab="false">
+        <group id="WaterCorpWeedMonitor_Group7" caption="Other" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_Testing" size="large" />
+		  <button refID="WaterCorpWeedMonitor_Help" size="large" />
         </group>
       </groups>
       <controls>
         <!-- controls -->
-        <button id="WaterCorpWeedMonitor_CreateNewSite" caption="Create New Site" className="CreateNewSite" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeodatabaseNew16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeodatabaseNew32.png">
+        <button id="WaterCorpWeedMonitor_CreateNewSite" caption="Create New Site" className="CreateNewSite" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeodatabaseNew32.png">
           <tooltip heading="Create a new monitor site">Create a new monitor site on existing drone image data.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_IngestNewCapture" caption="Ingest New UAV Capture" className="IngestNewCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen32.png">
+        <button id="WaterCorpWeedMonitor_IngestNewCapture" caption="Ingest New UAV Capture" className="IngestNewCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericAddGreen32.png">
           <tooltip heading="Ingest a new UAV capture">Ingest data from a new UAV capture and add to an existing monitor site. <disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_ClassifyUAVCapture" caption="Classify UAV Captures" className="ClassifyUAVCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png">
+        <button id="WaterCorpWeedMonitor_ClassifyUAVCapture" caption="Classify UAV Captures" className="ClassifyUAVCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png">
           <tooltip heading="Classify UAV capture">Classify new or existing UAV captures into Native, Weed and Other classes via polygon training areas.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractions" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
+        <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractions" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
           <tooltip heading="Generate Fraction Layers">Generate Native, Weed and Other fraction timeseries layers via classified UAV capture and satellite data.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
+        <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">
           <tooltip heading="Generate Trend">Generates polynomial trend through fractional time series layers.<disabledText /></tooltip>
         </button>
         <button id="WaterCorpWeedMonitor_DetectUAVChange" caption="Detect UAV Change" className="DetectUAVChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/SyncExtent32.png">
           <tooltip heading="Detect UAV Change">Detect from-to changes for Native, Weed and Other classes between UAV captures.<disabledText /></tooltip>
         </button>
-		<button id="WaterCorpWeedMonitor_DetectFractionChange" caption="Detect Fraction Change" className="DetectFractionChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/SyncTime32.png">
-		  <tooltip heading="Detect Fraction Change">Detect from-to changes for Native, Weed and Other fractions between dates.<disabledText /></tooltip>
-		</button>
-		<button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">
+        <button id="WaterCorpWeedMonitor_DetectFractionChange" caption="Detect Fraction Change" className="DetectFractionChange" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/SyncTime32.png">
+          <tooltip heading="Detect Fraction Change">Detect from-to changes for Native, Weed and Other fractions between dates.<disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_GenerateNDVI" caption="Generate NDVI" className="GenerateNDVI" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate32.png">
+          <tooltip heading="Generate NDVI">Generate NDVI data from existing Sentinel 2 data.<disabledText /></tooltip>
+        </button>
+        <button id="WaterCorpWeedMonitor_DisplayData" caption="Display Data" className="DisplayData" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/MapFrame32.png">
           <tooltip heading="Display Data">Display existing NDVI and fraction layers on active map.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_GraphFractions" caption="Graph Fractions" className="GraphFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/3DAnalystInterpolateProfileGraphCreate32.png">
-          <tooltip heading="Graph Fractions">Graph Native, Weed and Other fraction timeseries layers.<disabledText /></tooltip>
+        <button id="WaterCorpWeedMonitor_Testing" caption="Testing" className="Testing" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeoprocessingEnvironmentSettings32.png">
+          <tooltip heading="Testing">Perform tests to check if tool works.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_Testing" caption="Testing" className="Testing" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeoprocessingEnvironmentSettings16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeoprocessingEnvironmentSettings32.png">
-          <tooltip heading="Testing">Testing<disabledText /></tooltip>
+        <button id="WaterCorpWeedMonitor_Help" caption="Help" className="Help" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GeocodeAddressLocator32.png">
+          <tooltip heading="Help">Open the GitHub page in a browser for information about installation and bug tracking.<disabledText /></tooltip>
         </button>
       </controls>
     </insertModule>

@@ -1,19 +1,28 @@
 
-import os
-import json
-import datetime
-import numpy as np
-import pandas as pd
-import xarray as xr
-import arcpy
-
-from scripts import shared
-
-
 def execute(
         parameters
-        # messages # TODO: implement
 ):
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region IMPORTS
+
+    import os
+    import json
+    import warnings
+    import xarray as xr
+    import arcpy
+
+    from scripts import shared
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
+
+    # endregion
+
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region EXTRACT PARAMETERS
 
@@ -23,9 +32,9 @@ def execute(
     in_layers_to_visualise = parameters[2].valueAsText
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach demo\meta.json'
-    # in_flight_datetime = '2023-02-08 10:22:09'
-    # in_layers_to_visualise = "'UAV RGB';'UAV NDVI';'UAV Classified';'S2 NDVI';'S2 Fractions'"
+    #in_project_file = r'C:\Users\Lewis\Desktop\testing\citybeach\meta.json'
+    #in_flight_datetime = '2024-02-05 11:00:00'
+    #in_layers_to_visualise = "'RGB (UAV)';'NDVI (UAV)';'Classified (UAV)';'Change (UAV)';'Fractions (SAT)'"
 
     # endregion
 
@@ -34,24 +43,25 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing environment...')
 
-    # check if user has spatial analyst, error if not
+    # check if advanced license is available
+    if arcpy.CheckProduct('ArcInfo') not in ['AlreadyInitialized', 'Available']:
+        arcpy.AddError('Advanced ArcGIS Pro license is unavailable.')
+        return
+
+    # check if user has spatial/image analyst, error if not
     if arcpy.CheckExtension('Spatial') != 'Available':
         arcpy.AddError('Spatial Analyst license is unavailable.')
-        raise  # return
-    # TODO: remove below if wc has no ia
+        return
     elif arcpy.CheckExtension('ImageAnalyst') != 'Available':
         arcpy.AddError('Image Analyst license is unavailable.')
-        raise  # return
+        return
     else:
         arcpy.CheckOutExtension('Spatial')
-        arcpy.CheckOutExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+        arcpy.CheckOutExtension('ImageAnalyst')
 
     # set data overwrites and mapping
     arcpy.env.overwriteOutput = True
     arcpy.env.addOutputsToMap = False
-
-    # set current workspace to scratch folder
-    arcpy.env.workspace = arcpy.env.scratchFolder
 
     # endregion
 
@@ -63,7 +73,7 @@ def execute(
     # check if input project file exists
     if not os.path.exists(in_project_file):
         arcpy.AddError('Project file does not exist.')
-        raise  # return
+        return
 
     # get top-level project folder from project file
     in_project_folder = os.path.dirname(in_project_file)
@@ -73,8 +83,26 @@ def execute(
     for sub_folder in sub_folders:
         sub_folder = os.path.join(in_project_folder, sub_folder)
         if not os.path.exists(sub_folder):
-            arcpy.AddError('Project folder is missing expected folders.')
-            raise  # return
+            arcpy.AddError('Project is missing required folders.')
+            return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region CREATE AND SET WORKSPACE TO TEMPORARY FOLDER
+
+    arcpy.SetProgressor('default', 'Preparing workspace...')
+
+    # create temp folder if does not already exist
+    tmp = os.path.join(in_project_folder, 'tmp')
+    if not os.path.exists(tmp):
+        os.mkdir(tmp)
+
+    # clear temp folder (errors skipped)
+    shared.clear_tmp_folder(tmp_folder=tmp)
+
+    # set temp folder to arcpy workspace
+    arcpy.env.workspace = tmp
 
     # endregion
 
@@ -91,18 +119,12 @@ def execute(
     except Exception as e:
         arcpy.AddError('Could not read metadata. See messages.')
         arcpy.AddMessage(str(e))
-        raise  # return
+        return
 
-    # check if any captures exist (will be >= 4)
+    # check if any captures exist (will be >= 4), else error
     if len(meta) < 4:
         arcpy.AddError('Project has no UAV capture data.')
-        raise  # return
-
-    # check and get start of rehab date
-    #rehab_start_date = meta.get('date_rehab')
-    #if rehab_start_date is None:
-        #arcpy.AddError('Project has no start of rehab date.')
-        #raise  # return
+        return
 
     # endregion
 
@@ -124,384 +146,253 @@ def execute(
     # check if meta item exists, else error
     if meta_item is None:
         arcpy.AddError('Could not find selected UAV capture in metadata file.')
-        raise  # return
+        return
+
+    # build capture and visulise folders
+    capture_folder = os.path.join(in_project_folder, 'uav_captures', meta_item['capture_folder'])
+    visualise_folder = os.path.join(in_project_folder, 'visualise')
+
+    # get flight date code
+    flight_date = meta_item['capture_folder']
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region PREPARING INPUT PARAMETERS
+    # region PREPARING PARAMETERS
 
     arcpy.SetProgressor('default', 'Preparing input parameters...')
 
     # parse layers from parameter
-    requested_layers = [e for e in in_layers_to_visualise.split(';')]
-    requested_layers = [e.replace("'", '').strip() for e in requested_layers]
-    if len(requested_layers) == 0:
-        arcpy.AddError('No layers requested..')
-        raise  # return
+    lyrs = []
+    for lyr in in_layers_to_visualise.split(';'):
+        lyr = lyr.replace("'", '').strip()
+        lyrs.append(lyr)
 
-    # build visualise folder
-    visualise_folder = os.path.join(in_project_folder, 'visualise')
+    # check we got something back
+    if len(lyrs) == 0:
+        arcpy.AddError('No layers requested for visualisation.')
+        return
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region VISUALISE UAV RASTER IF REQUESTED
+    # region VISUALISE UAV RGB RASTER IF REQUESTED
 
-    arcpy.SetProgressor('default', 'Visualising requested UAV capture data...')
+    if 'RGB (UAV)' in lyrs:
 
-    # init visualise uav
-    visualise_uav_data = False
+        arcpy.SetProgressor('default', 'Visualising UAV RGB data...')
 
-    # check if any requested layers are for uav data
-    for lyr in requested_layers:
-        if 'UAV' in lyr:
-            visualise_uav_data = True
-            break
-
-    # read uav raster if requested
-    if visualise_uav_data:
-
-        # build capture folder and band folder
-        capture_folder = os.path.join(in_project_folder, 'uav_captures', meta_item['capture_folder'])
+        # create bands folder
         bands_folder = os.path.join(capture_folder, 'bands')
-        classify_folder = os.path.join(capture_folder, 'classify')
 
         # create raw band map to maintain band order
         band_map = {
             'blue': os.path.join(bands_folder, 'blue.tif'),
             'green': os.path.join(bands_folder, 'green.tif'),
-            'red': os.path.join(bands_folder, 'red.tif'),
-            'redge': os.path.join(bands_folder, 'redge.tif'),
-            'nir': os.path.join(bands_folder, 'nir.tif'),
+            'red': os.path.join(bands_folder, 'red.tif')
         }
 
-        # check if bands exist
-        for v in band_map.values():
-            if not os.path.exists(v):
-                arcpy.AddError('Some required UAV bands missing from capture folder.')
-                raise  # return
+        try:
+            # open bands as seperate rasters
+            blue = arcpy.Raster(band_map['blue'])
+            green = arcpy.Raster(band_map['green'])
+            red = arcpy.Raster(band_map['red'])
 
-        # visualise uav capture rgb if requested
-        if 'UAV RGB' in requested_layers:
-            try:
-                # open bands as seperate rasters
-                red = arcpy.Raster(band_map['red'])
-                green = arcpy.Raster(band_map['green'])
-                blue = arcpy.Raster(band_map['blue'])
+            # create uav raster rgb compoisite for visualise
+            tmp_rgb = arcpy.sa.CompositeBand([red, green, blue])
 
-                # combine bands into composite
-                tmp = arcpy.ia.CompositeBand([red, green, blue])
+            # create uav rgb raster path to visualise folder
+            out_tif = os.path.join(visualise_folder, 'uav_rgb' + '_' + flight_date + '.tif')
 
-                # save to visualise folder
-                out_fn = os.path.join(visualise_folder, 'uav_rgb.tif')
-                tmp.save(out_fn)
+            # delete previously created visual raster and re-save
+            shared.delete_visual_rasters(rasters=[out_tif])
+            tmp_rgb.save(out_tif)
 
-                # add to map
-                shared.add_raster_to_map(in_ras=out_fn)
+            # visualise it on active map
+            shared.add_raster_to_map(in_ras=out_tif)
 
-            except Exception as e:
-                arcpy.AddWarning('Could not read raster bands. See messages.')
-                arcpy.AddMessage(str(e))
-                #raise  # return
-
-        # visualise uav capture ndvi if requested
-        if 'UAV NDVI' in requested_layers:
-            try:
-                # open bands as seperate rasters
-                red = arcpy.Raster(band_map['red'])
-                nir = arcpy.Raster(band_map['nir'])
-
-                # calculate ndvi
-                tmp = (nir - red) / (nir + red)
-
-                # save to visualise folder
-                out_fn = os.path.join(visualise_folder, 'uav_ndvi.tif')
-                tmp.save(out_fn)
-
-                # add to map and update symbology
-                shared.add_raster_to_map(in_ras=out_fn)
-                shared.apply_ndvi_layer_symbology(in_ras=out_fn)
-
-            except Exception as e:
-                arcpy.AddWarning('Could not read raster bands. See messages.')
-                arcpy.AddMessage(str(e))
-                #raise  # return
-
-        # visualise uav capture classified if requested
-        if 'UAV Classified' in requested_layers:
-            try:
-                # create and check optimal rf tif exists
-                class_tif = os.path.join(classify_folder, 'rf_optimal.tif')
-                if not os.path.exists(class_tif):
-                    arcpy.AddError('Classified UAV capture image does not exist.')
-                    raise  # return
-
-                # open bands as seperate rasters
-                tmp = arcpy.Raster(class_tif)
-
-                # save to visualise folder
-                out_fn = os.path.join(visualise_folder, 'uav_classified.tif')
-                tmp.save(out_fn)
-
-                # add to map and update symbology
-                shared.add_raster_to_map(in_ras=out_fn)
-                shared.apply_uav_classified_layer_symbology(in_ras=out_fn)
-
-            except Exception as e:
-                arcpy.AddWarning('Could not read classified raster. See messages.')
-                arcpy.AddMessage(str(e))
-                #raise  # return
+        except Exception as e:
+            arcpy.AddWarning('Could not visualise UAV RGB raster. See messages.')
+            arcpy.AddMessage(str(e))
+            pass
 
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-    # region VISUALISE SENTINEL 2 IF REQUESTED
+    # region VISUALISE UAV NDVI RASTER IF REQUESTED
 
-    arcpy.SetProgressor('default', 'Visualising requested Sentinel 2 data...')
+    if 'NDVI (UAV)' in lyrs:
 
-    # init visualise uav
-    visualise_s2_data = False
+        arcpy.SetProgressor('default', 'Visualising UAV NDVI data...')
 
-    # check if any requested layers are for uav data
-    for lyr in requested_layers:
-        if 'S2' in lyr:
-            visualise_s2_data = True
-            break
+        # create bands folder
+        bands_folder = os.path.join(capture_folder, 'bands')
 
-    # read sentinel 2 netcdf if requested
-    if visualise_s2_data:
+        # create raw band map to maintain band order
+        band_map = {
+            'red': os.path.join(bands_folder, 'red.tif'),
+            'nir': os.path.join(bands_folder, 'nir.tif')
+        }
 
-        # build sat captures folder and combine netcdfs folder
-        sat_folder = os.path.join(in_project_folder, 'sat_captures')
-        combine_ncs_folder = os.path.join(sat_folder, 'cmb_ncs')
+        try:
+            # open bands as seperate rasters
+            red = arcpy.Raster(band_map['red'])
+            nir = arcpy.Raster(band_map['nir'])
 
-        # build capture folder and fractions folder
-        capture_folder = os.path.join(in_project_folder, 'uav_captures', meta_item['capture_folder'])
-        fractions_folder = os.path.join(capture_folder, 'fractions')
+            # calculate ndvi
+            ndvi = (nir - red) / (nir + red)
 
-        # TODO: check exists
+            # create uav rgb raster path to visualise folder
+            out_tif = os.path.join(visualise_folder, 'uav_ndvi' + '_' + flight_date + '.tif')
 
-        # visualise sentinel 2 ndvi time series if requested
-        if 'S2 NDVI' in requested_layers:
-            try:
-                # load combined netcdf
-                cmb_ncs = os.path.join(combine_ncs_folder, 'raw_monthly_meds.nc')
-                with xr.open_dataset(cmb_ncs) as ds:
-                    ds.load()
+            # delete previously created visual raster and re-save
+            shared.delete_visual_rasters(rasters=[out_tif])
+            ndvi.save(out_tif)
 
-                if 'time' not in ds or 'x' not in ds or 'y' not in ds:
-                    arcpy.AddError('Sentinel 2 NetCDF is not compatible.')
-                    raise  # return
+            # visualise it on active map
+            shared.add_raster_to_map(in_ras=out_tif)
+            shared.apply_ndvi_layer_symbology(in_ras=out_tif)
 
-                if len(ds['time']) == 0:
-                    arcpy.AddError('No time dimension detected in Sentinel 2 NetCDF.')
-                    raise  # return
-
-                # extract netcdf attributes
-                ds_attrs = ds.attrs
-                ds_band_attrs = ds[list(ds)[0]].attrs
-                ds_spatial_ref_attrs = ds['spatial_ref'].attrs
-
-                # calculate ndvi for each slice
-                ds_ndvi = (ds['nbart_nir_1'] - ds['nbart_red']) / (ds['nbart_nir_1'] + ds['nbart_red'])
-                ds_ndvi = ds_ndvi.to_dataset(name='ndvi')
-
-                # append attributes back on
-                ds_ndvi.attrs = ds_attrs
-                ds_ndvi['spatial_ref'].attrs = ds_spatial_ref_attrs
-                for var in ds_ndvi:
-                    ds_ndvi[var].attrs = ds_band_attrs
-
-                # export combined monthly median to scratch
-                out_nc = os.path.join(arcpy.env.scratchFolder, 'ndvi_monthly_meds.nc')
-                ds_ndvi.to_netcdf(out_nc)
-                ds_ndvi.close()
-
-                # convert netcdf to crf and export to visualise folder
-                out_fn = os.path.join(visualise_folder, 's2_ndvi.crf')
-                arcpy.management.CopyRaster(in_raster=out_nc,
-                                            out_rasterdataset=out_fn)
-
-                # add to map
-                shared.add_raster_to_map(in_ras=out_fn)
-                shared.apply_ndvi_layer_symbology(in_ras=out_fn)
-
-            except Exception as e:
-                arcpy.AddWarning('Could not read Sentinel 2 NetCDF. See messages.')
-                arcpy.AddMessage(str(e))
-                #raise  # return
-
-        # visualise uav capture rgb if requested
-        if 'S2 Fractions' in requested_layers:
-            try:
-                # check fractional folder exists
-                if not os.path.exists(fractions_folder):
-                    arcpy.AddError('Fractions folder does not exist.')
-                    raise  # return
-
-                # check we have something in it
-                if len(os.listdir(fractions_folder)) == 0:
-                    arcpy.AddError('No fractional layers available.')
-                    raise  # return
-
-                # get list of folders (dates) in fractional folder
-                frac_dates = sorted(os.listdir(fractions_folder))
-
-                # build list of fractional map dates and paths
-                frac_data = []
-                for frac_date in frac_dates:
-                    # build current folder path
-                    frac_folder = os.path.join(fractions_folder, frac_date)
-
-                    # init new fraction map
-                    frac_map = {
-                        'native': None,
-                        'weed': None,
-                        'other': None
-                    }
-
-                    # get all tif in current frac folder and build map
-                    files = os.listdir(frac_folder)
-                    for file in files:
-                        if file.endswith('.tif'):
-                            if 'native' in file:
-                                frac_map['native'] = os.path.join(frac_folder, file)
-                            elif 'weed' in file:
-                                frac_map['weed'] = os.path.join(frac_folder, file)
-                            elif 'other' in file:
-                                frac_map['other'] = os.path.join(frac_folder, file)
-
-                    # append to list if all tifs found, else warm
-                    if None not in list(frac_map.values()):
-                        frac_data.append({frac_date: frac_map})
-                    else:
-                        arcpy.AddWarning(f'Fractional month {frac_date} missing layers.')
-
-                # check we got something, error otherwise
-                if len(frac_data) == 0:
-                    arcpy.AddError('No fractional layers available.')
-                    raise  # return
-
-                # iter each fractional month date...
-                all_ncs = []
-                for item in frac_data:
-                    # unpack values
-                    frac_date = list(item.keys())[0]
-                    frac_map = list(item.values())[0]
-
-                    # init current ncs
-                    new_ncs = []
-
-                    # iter native, weed, other...
-                    for tif_name, tif_path in frac_map.items():
-                        # convert tif to nc and store in scratch
-                        tmp_nc = os.path.join(arcpy.env.scratchFolder, f'tmp_{tif_name}.nc')
-                        arcpy.management.CopyRaster(in_raster=tif_path,
-                                                    out_rasterdataset=tmp_nc)
-
-                        # read netcdf as xr
-                        with xr.open_dataset(tmp_nc) as ds_tmp:
-                            ds_tmp.load()
-
-                        # set up crs info
-                        for band in ds_tmp:
-                            if len(ds_tmp[band].shape) == 0:
-                                crs_name = band
-                                crs_wkt = str(ds_tmp[band].attrs.get('spatial_ref'))
-                                ds_tmp = ds_tmp.drop_vars(crs_name)
-                                break
-
-                        # append crs info back on
-                        ds_tmp = ds_tmp.assign_coords({'spatial_ref': 32750})
-                        ds_tmp['spatial_ref'].attrs = {
-                            'spatial_ref': crs_wkt,
-                            'grid_mapping_name': crs_name
-                        }
-
-                        # append time dimension on
-                        if 'time' not in ds_tmp:
-                            dt = pd.to_datetime(frac_date + '-01', format='%Y-%m-%d')
-                            ds_tmp = ds_tmp.assign_coords({'time': dt.to_numpy()})
-                            ds_tmp = ds_tmp.expand_dims('time')
-
-                        # append
-                        for dim in ds_tmp.dims:
-                            if dim in ['x', 'y', 'lat', 'lon']:
-                                ds_tmp[dim].attrs = {
-                                    'resolution': np.mean(np.diff(ds_tmp[dim])),
-                                    'crs': f'EPSG:{32750}'
-                                }
-
-                        # append
-                        for i, band in enumerate(ds_tmp):
-                            ds_tmp[band].attrs = {
-                                'units': '1',
-                                'crs': f'EPSG:{32570}',
-                                'grid_mapping': 'spatial_ref',
-                            }
-
-                            # rename band
-                            ds_tmp = ds_tmp.rename({band: tif_name})
-
-                        # append
-                        ds_tmp.attrs = {
-                            'crs': f'EPSG:{32570}',
-                            'grid_mapping': 'spatial_ref'
-                        }
-
-                        # append
-                        new_ncs.append(ds_tmp)
-
-                        # delete nc
-                        arcpy.management.Delete(tmp_nc)
-
-                    # combine datasets into one
-                    ds = xr.merge(new_ncs)
-                    ds.close()
-
-                    # append it
-                    all_ncs.append(ds)
-
-                # combine fraction ncs into one
-                ds = xr.concat(all_ncs, 'time').sortby('time')
-
-                # export combined fractionals to scratch
-                out_nc = os.path.join(arcpy.env.scratchFolder, 's2_fracs.nc')
-                ds.to_netcdf(out_nc)
-                ds.close()
-
-                # create a crf version of fractional netcdf
-                out_fn = os.path.join(visualise_folder, 's2_fracs.crf')
-                arcpy.management.CopyRaster(in_raster=out_nc,
-                                            out_rasterdataset=out_fn)
-
-                # add to map
-                shared.add_raster_to_map(in_ras=out_fn)
-                shared.apply_fraction_layer_symbology(in_ras=out_fn)
-
-            except Exception as e:
-                arcpy.AddWarning('Could not read Sentinel 2 NetCDF. See messages.')
-                arcpy.AddMessage(str(e))
-                #raise  # return
+        except Exception as e:
+            arcpy.AddWarning('Could not visualise UAV NDVI raster. See messages.')
+            arcpy.AddMessage(str(e))
+            pass
 
     # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region VISUALISE UAV CLASSIFIED RASTER IF REQUESTED
+
+    if 'Classified (UAV)' in lyrs:
+
+        arcpy.SetProgressor('default', 'Visualising UAV Classified data...')
+
+        # get classify folder
+        classify_folder = os.path.join(capture_folder, 'classify')
+
+        try:
+            # get optimal classification raster
+            cls_tif = os.path.join(classify_folder, 'rf_optimal.tif')
+
+            # open classification raster
+            tmp_cls = arcpy.Raster(cls_tif)
+
+            # create uav classified raster path to visualise folder
+            out_tif = os.path.join(visualise_folder, 'uav_classified' + '_' + flight_date + '.tif')
+
+            # delete previously created visual raster and re-save
+            shared.delete_visual_rasters(rasters=[out_tif])
+            tmp_cls.save(out_tif)
+
+            # visualise it on active map
+            shared.add_raster_to_map(in_ras=out_tif)
+            shared.apply_classified_symbology(in_ras=out_tif)
+
+        except Exception as e:
+            arcpy.AddWarning('Could not visualise UAV Classified raster. See messages.')
+            arcpy.AddMessage(str(e))
+            pass
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region VISUALISE UAV CHANGE RASTER IF REQUESTED
+
+    if 'Change (UAV)' in lyrs:
+
+        arcpy.SetProgressor('default', 'Visualising UAV Change data...')
+
+        # get classify folder
+        change_folder = os.path.join(capture_folder, 'change')
+
+        try:
+            # check if uav change raster in folder
+            tif = None
+            for file in os.listdir(change_folder):
+                if 'change_uav_' in file and file.endswith('.tif'):
+                    tif = file
+                    break
+
+            # create uav classified raster path to visualise folder
+            in_tif = os.path.join(change_folder, tif)
+            out_tif = os.path.join(visualise_folder, tif)
+
+            # delete previously created visual raster and re-save
+            shared.delete_visual_rasters(rasters=[out_tif])
+
+            # copy raster over to visualise folder
+            arcpy.management.CopyRaster(in_raster=in_tif,
+                                        out_rasterdataset=out_tif)
+
+            # visualise it on active map
+            shared.add_raster_to_map(in_ras=out_tif)
+            shared.apply_uav_change_symbology(in_ras=out_tif)
+
+        except Exception as e:
+            arcpy.AddWarning('Could not visualise UAV Change raster. See messages.')
+            arcpy.AddMessage(str(e))
+            pass
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region VISUALISE SAT FRACTIONS RASTERs IF REQUESTED
+
+    if 'Fractions (SAT)' in lyrs:
+
+        arcpy.SetProgressor('default', 'Visualising Satellite Fractions data...')
+
+        # get fraction folder
+        fraction_folder = os.path.join(capture_folder, 'fractions')
+
+        try:
+            # get full fraction dataset
+            ds_list = []
+            for root, dirs, files in os.walk(fraction_folder):
+                for file in files:
+                    if 'frc' in file and file.endswith('.nc'):
+                        ds_list.append(os.path.join(root, file))
+
+            # read all netcdfs into single dataset
+            ds = shared.concat_netcdf_files(nc_files=ds_list)
+
+            # convert to a crf for each fractional variable
+            for var in ds:
+                # export current var
+                tmp_frc_nc = os.path.join(tmp, f'frc_{var}.nc')
+                ds[[var]].to_netcdf(tmp_frc_nc)
+
+                # create crf path to visualise folder
+                out_crf = os.path.join(visualise_folder, f'frc_{var}_{flight_date}.crf')
+
+                # delete previously created visual crf
+                shared.delete_visual_rasters(rasters=[out_crf])
+
+                # re-save it
+                shared.netcdf_to_crf(in_nc=tmp_frc_nc,
+                                     out_crf=out_crf)
+
+                # add crf to map
+                shared.add_raster_to_map(in_ras=out_crf)
+
+        except Exception as e:
+            arcpy.AddError('Could not visualise Satellite Fraction rasters. See messages.')
+            arcpy.AddMessage(str(e))
+            return
+
+        # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region END ENVIRONMENT
 
-    # TODO: enable if move to non-memory temp files
-    # try:
-    #     # drop temp files (free up space)
-    #     arcpy.management.Delete(tmp_comp)
-    #
-    # except Exception as e:
-    #     arcpy.AddWarning('Could not drop temporary files. See messages.')
-    #     arcpy.AddMessage(str(e))
+    arcpy.SetProgressor('default', 'Cleaning up environment...')
 
-    # free up spatial analyst
+    # clear temp folder (errors skipped)
+    shared.clear_tmp_folder(tmp_folder=tmp)
+
+    # free up spatial analyst and image analyst
     arcpy.CheckInExtension('Spatial')
-    arcpy.CheckInExtension('ImageAnalyst')  # TODO: remove if wc has no ia
+    arcpy.CheckInExtension('ImageAnalyst')
 
     # set changed env variables back to default
     arcpy.env.overwriteOutput = False

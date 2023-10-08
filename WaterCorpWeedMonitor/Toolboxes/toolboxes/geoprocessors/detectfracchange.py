@@ -264,6 +264,9 @@ def execute(
     from_date = f'{from_year}-{str(month).zfill(2)}'
     to_date = f'{to_year}-{str(month).zfill(2)}'
 
+    # tell user final dates used
+    arcpy.AddMessage(f'Detecting change from {from_date} to {to_date}.')
+
     try:
         # get nearest dates to left, right of "from" date
         from_dates_l_r = change.get_closest_dates(dates=valid_frac_dates,
@@ -423,25 +426,19 @@ def execute(
         return
 
     try:
-        # set up output gain csv
-        fn_gain_csv = os.path.basename(chg_map['gain'])
-        fn_gain_csv = fn_gain_csv.split('.')[0] + '_areas' + '.csv'
-        out_gain_csv = os.path.join(change_folder, fn_gain_csv)
+        # iter each direction...
+        for direction in ['gain', 'loss']:
 
-        # calculate area (ha) per gain class and save to csv
-        change.calc_frac_change_areas(in_ras=chg_map['gain'],
-                                      in_boundary=tmp_bnd,
-                                      out_csv=out_gain_csv)
+            # set up output csv
+            fn_csv = os.path.basename(chg_map[direction])
+            fn_csv = fn_csv.split('.')[0]
+            fn_csv = f'{fn_csv}_areas.csv'
+            out_csv = os.path.join(change_folder, fn_csv)
 
-        # set up output gain csv
-        fn_loss_csv = os.path.basename(chg_map['gain'])
-        fn_loss_csv = fn_loss_csv.split('.')[0] + '_areas' + '.csv'
-        out_loss_csv = os.path.join(change_folder, fn_loss_csv)
-
-        # calculate area (ha) per gain class and save to csv
-        change.calc_frac_change_areas(in_ras=chg_map['loss'],
-                                      in_boundary=tmp_bnd,
-                                      out_csv=out_loss_csv)
+            # calculate area (ha) per gain class and save to csv
+            change.calc_frac_change_areas(in_ras=chg_map[direction],
+                                          in_boundary=tmp_bnd,
+                                          out_csv=out_csv)
 
     except Exception as e:
         arcpy.AddWarning('Could not calculate change areas. See messages.')
@@ -459,27 +456,24 @@ def execute(
     visualise_folder = os.path.join(in_project_folder, 'visualise')
 
     try:
-        # create frac change raster for visualise folder
-        tmp_gain = arcpy.Raster(chg_map['gain'])
-        tmp_loss = arcpy.Raster(chg_map['loss'])
+        # iter each direction (reverse order for map order)...
+        for direction in ['loss', 'gain']:
+            # create frac change raster for visualise folder
+            tmp_ras = arcpy.Raster(chg_map[direction])
 
-        # save gain to visualise folder
-        out_gain_fn = os.path.basename(chg_map['gain'])
-        out_gain_tif = os.path.join(visualise_folder, out_gain_fn)
-        tmp_gain.save(out_gain_tif)
+            # prepare path for visualise
+            out_fn = os.path.basename(chg_map[direction])
+            out_tif = os.path.join(visualise_folder, out_fn)
 
-        # save loss to visualise folder
-        out_loss_fn = os.path.basename(chg_map['loss'])
-        out_loss_tif = os.path.join(visualise_folder, out_loss_fn)
-        tmp_loss.save(out_loss_tif)
+            # delete previously created visual raster and re-save
+            shared.delete_visual_rasters(rasters=[out_tif])
+            tmp_ras.save(out_tif)
 
-        # add gain and loss tifs to active map
-        shared.add_raster_to_map(in_ras=out_gain_tif)
-        shared.add_raster_to_map(in_ras=out_loss_tif)
+            # add tif to active map
+            shared.add_raster_to_map(in_ras=out_tif)
 
-        # symbolise gain and loss tifs to class colours
-        shared.apply_frac_change_symbology(in_ras=out_gain_tif)
-        shared.apply_frac_change_symbology(in_ras=out_loss_tif)
+            # symbolise tif to class colours
+            shared.apply_frac_change_symbology(in_ras=out_tif)
 
     except Exception as e:
         arcpy.AddWarning('Could not visualise fractional change rasters. See messages.')
@@ -496,8 +490,7 @@ def execute(
     try:
         # drop temp files (free up space)
         del ras_cmb
-        del tmp_gain
-        del tmp_loss
+        del tmp_ras
 
     except Exception as e:
         arcpy.AddWarning('Could not drop temporary files. See messages.')

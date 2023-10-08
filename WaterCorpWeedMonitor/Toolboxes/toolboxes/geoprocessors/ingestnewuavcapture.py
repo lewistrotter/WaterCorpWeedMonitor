@@ -365,8 +365,11 @@ def execute(
         # create uav raster rgb compoisite for visualise
         tmp_rgb = arcpy.sa.CompositeBand([r_tif, g_tif, b_tif])
 
-        # save uav rgb raster to visualise folder
+        # create uav rgb raster path to visualise folder
         out_tif = os.path.join(visualise_folder, 'uav_rgb' + '_' + new_flight_date + '.tif')
+
+        # delete previously created visual raster and re-save
+        shared.delete_visual_rasters(rasters=[out_tif])
         tmp_rgb.save(out_tif)
 
         # visualise it on active map

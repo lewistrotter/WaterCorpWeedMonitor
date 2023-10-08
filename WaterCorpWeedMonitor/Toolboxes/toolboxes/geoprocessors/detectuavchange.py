@@ -292,8 +292,11 @@ def execute(
         # create uav change raster for visualise folder
         tmp_ras = arcpy.Raster(ras_cls)
 
-        # save uav rgb raster to visualise folder
+        # create uav change raster path to visualise folder
         out_tif = os.path.join(visualise_folder, out_fn)
+
+        # delete previously created visual raster and re-save
+        shared.delete_visual_rasters(rasters=[out_tif])
         tmp_ras.save(out_tif)
 
         # visualise it on active map and symbolise it to class colors
