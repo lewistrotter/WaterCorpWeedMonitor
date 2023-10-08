@@ -157,8 +157,8 @@ def DetectUAVChange(in_project_file=None, in_uav_from_date=None, in_uav_to_date=
      INPUTS:
       in_project_file (File):
           Every site has a unique meta.json file in its project folder. Find
-          and select this file to set the current site containing the UAV image
-          you want to generate fraction models for.
+          and select this file to set the current site containing the UAV images
+          you want to compare.
       in_uav_from_date (String):
           Set the "baseline" (i.e., "from") UAV capture date and time.
       in_uav_to_date (String):
@@ -168,8 +168,8 @@ def DetectUAVChange(in_project_file=None, in_uav_from_date=None, in_uav_to_date=
           Apply a majority filter using a 5x5 focal window to remove isolated
           pixels and classification noise.
       in_use_shrink_filter (Boolean):
-          Apply a shrink filter to reduce spatial footprint of pixels by up to
-          1 pixel. This algorithm greatly reduces the "salt and pepper" noise
+          Apply a shrink filter to reduce spatial footprint of pixels by up
+          to 1 pixel. This algorithm greatly reduces the "salt and pepper" noise
           effect but may also eliminate smaller, valid changes. Recommended if
           you want to focus on larger, more significant changes."""
     from arcpy.geoprocessing._base import gp, gp_fixargs
@@ -184,13 +184,19 @@ def DetectUAVChange(in_project_file=None, in_uav_from_date=None, in_uav_to_date=
 def DisplayData(in_project_file=None, in_capture_datetime=None, in_layers_to_visualise=None):
     """DisplayData_WCMonitor(in_project_file, in_capture_datetime, in_layers_to_visualise;in_layers_to_visualise...)
 
+        Quickly display various results from previously run tools.
+
      INPUTS:
       in_project_file (File):
-          Existing Project File
+          Every site has a unique meta.json file in its project folder. Find
+          and select this file to set the current site containing the UAV image
+          you want to display results for.
       in_capture_datetime (String):
-          UAV Capture to Visualise
+          Set the UAV image for which to display previously generated results
+          for based on the date and time it was flown.
       in_layers_to_visualise (String):
-          Layers to Visualise"""
+          Select various results to display. If layer does not exist, user
+          will receive a warning."""
     from arcpy.geoprocessing._base import gp, gp_fixargs
     from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
     try:
@@ -240,10 +246,10 @@ def GenerateNDVI(in_project_file=None, in_freq=None):
       in_project_file (File):
           Every site has a unique meta.json file in its project folder. Find
           and select this file to set the current site containing the UAV image
-          you want to generate fraction models for.
+          you want to generate NDVI data for.
       in_freq (String):
-          Select the temporal frequency in which NDVI time-series data will be
-          presented. Raw NDVI data will be aggregated to this frequency via
+          Select the temporal frequency in which NDVI time-series data will
+          be presented. Raw NDVI data will be aggregated to this frequency via
           median aggregator."""
     from arcpy.geoprocessing._base import gp, gp_fixargs
     from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
@@ -275,7 +281,7 @@ def GenerateTrend(in_project_file=None, in_capture_datetime=None, in_rehab_or_ca
       in_project_file (File):
           Every site has a unique meta.json file in its project folder. Find
           and select this file to set the current site containing the UAV image
-          you want to RGB trends for.
+          you want to generate RGB trends for.
       in_capture_datetime (String):
           Set the UAV image for which to generate RGB trends based on the
           date and time it was flown.
@@ -347,9 +353,15 @@ def IngestNewUAVCapture(in_project_file=None, in_flight_datetime=None, in_blue_b
 def Testing(in_folder=None):
     """Testing_WCMonitor(in_folder)
 
+        Run this tool to run various diagnostics on your computer to check
+        if the plug-in works. Note: you will need provided test data found on
+        the project's GitHub page.
+
      INPUTS:
       in_folder (Folder):
-          Test Data Folder"""
+          Set the folder of the provided test data. Click the Help button to
+          open the project's GitHub page and download the test data to run
+          diagnotics."""
     from arcpy.geoprocessing._base import gp, gp_fixargs
     from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
     try:

@@ -134,7 +134,6 @@ def test_web(tmp_folder):
                 futures.append(task)
 
             for future in as_completed(futures):
-                #arcpy.AddMessage(future.result())
                 results.append(future.result())
 
     except Exception as e:
@@ -159,47 +158,58 @@ def test_createnewsite(in_folder, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_output_folder')
+    p00 = arcpy.Parameter(name='in_output_folder',
+                          datatype='DEFolder')
     p00.value = project_folder
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_boundary_feat')
+    p01 = arcpy.Parameter(name='in_boundary_feat',
+                          datatype='GPFeatureLayer',)
     p01.value = os.path.join(in_folder, 'studyarea.shp')
     params.append(p01)
 
-    p02 = arcpy.Parameter(name='in_rehab_datetime')
+    p02 = arcpy.Parameter(name='in_rehab_datetime',
+                          datatype='GPDate')
     p02.value = datetime.datetime(2017, 3, 13, 11, 22, 15, 552082)
     params.append(p02)
 
-    p03 = arcpy.Parameter(name='in_flight_datetime')
+    p03 = arcpy.Parameter(name='in_flight_datetime',
+                          datatype='GPDate')
     p03.value = datetime.datetime(2022, 2, 2, 10, 30, 15, 652082)
     params.append(p03)
 
-    p04 = arcpy.Parameter(name='in_blue_band')
+    p04 = arcpy.Parameter(name='in_blue_band',
+                          datatype='GPRasterLayer')
     p04.value = os.path.join(in_folder, 'ms_ref_blue.tif')
     params.append(p04)
 
-    p05 = arcpy.Parameter(name='in_green_band')
+    p05 = arcpy.Parameter(name='in_green_band',
+                          datatype='GPRasterLayer')
     p05.value = os.path.join(in_folder, 'ms_ref_green.tif')
     params.append(p05)
 
-    p06 = arcpy.Parameter(name='in_red_band')
+    p06 = arcpy.Parameter(name='in_red_band',
+                          datatype='GPRasterLayer')
     p06.value = os.path.join(in_folder, 'ms_ref_red.tif')
     params.append(p06)
 
-    p07 = arcpy.Parameter(name='in_redge_band')
+    p07 = arcpy.Parameter(name='in_redge_band',
+                          datatype='GPRasterLayer')
     p07.value = os.path.join(in_folder, 'ms_ref_redge.tif')
     params.append(p07)
 
-    p08 = arcpy.Parameter(name='in_nir_band')
+    p08 = arcpy.Parameter(name='in_nir_band',
+                          datatype='GPRasterLayer')
     p08.value = os.path.join(in_folder, 'ms_ref_nir.tif')
     params.append(p08)
 
-    p09 = arcpy.Parameter(name='in_dsm_band')
+    p09 = arcpy.Parameter(name='in_dsm_band',
+                          datatype='GPRasterLayer')
     p09.value = os.path.join(in_folder, 'ms_dsm.tif')
     params.append(p09)
 
-    p10 = arcpy.Parameter(name='in_dtm_band')
+    p10 = arcpy.Parameter(name='in_dtm_band',
+                          datatype='GPRasterLayer')
     p10.value = os.path.join(in_folder, 'ms_dtm.tif')
     params.append(p10)
 
@@ -217,39 +227,48 @@ def test_ingestnewuavcapture(in_folder, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_project_file')
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
     p00.value = os.path.join(project_folder, 'meta.json')
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_flight_datetime')
+    p01 = arcpy.Parameter(name='in_flight_datetime',
+                          datatype='GPDate')
     p01.value = datetime.datetime(2023, 2, 2, 10, 30, 15, 652082)
     params.append(p01)
 
-    p02 = arcpy.Parameter(name='in_blue_band')
+    p02 = arcpy.Parameter(name='in_blue_band',
+                          datatype='GPRasterLayer')
     p02.value = os.path.join(in_folder, 'ms_ref_blue.tif')
     params.append(p02)
 
-    p03 = arcpy.Parameter(name='in_green_band')
+    p03 = arcpy.Parameter(name='in_green_band',
+                          datatype='GPRasterLayer')
     p03.value = os.path.join(in_folder, 'ms_ref_green.tif')
     params.append(p03)
 
-    p04 = arcpy.Parameter(name='in_red_band')
+    p04 = arcpy.Parameter(name='in_red_band',
+                          datatype='GPRasterLayer')
     p04.value = os.path.join(in_folder, 'ms_ref_red.tif')
     params.append(p04)
 
-    p05 = arcpy.Parameter(name='in_redge_band')
+    p05 = arcpy.Parameter(name='in_redge_band',
+                          datatype='GPRasterLayer')
     p05.value = os.path.join(in_folder, 'ms_ref_redge.tif')
     params.append(p05)
 
-    p06 = arcpy.Parameter(name='in_nir_band')
+    p06 = arcpy.Parameter(name='in_nir_band',
+                          datatype='GPRasterLayer')
     p06.value = os.path.join(in_folder, 'ms_ref_nir.tif')
     params.append(p06)
 
-    p07 = arcpy.Parameter(name='in_dsm_band')
+    p07 = arcpy.Parameter(name='in_dsm_band',
+                          datatype='GPRasterLayer')
     p07.value = os.path.join(in_folder, 'ms_dsm.tif')
     params.append(p07)
 
-    p08 = arcpy.Parameter(name='in_dtm_band')
+    p08 = arcpy.Parameter(name='in_dtm_band',
+                          datatype='GPRasterLayer')
     p08.value = os.path.join(in_folder, 'ms_dtm.tif')
     params.append(p08)
 
@@ -267,24 +286,29 @@ def test_classifyuavcapture(in_folder, in_date, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_project_file')
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
     p00.value = os.path.join(project_folder, 'meta.json')
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_capture_datetime')
+    p01 = arcpy.Parameter(name='in_capture_datetime',
+                          datatype='GPString')
     p01.value = in_date
     params.append(p01)
 
-    p02 = arcpy.Parameter(name='in_include_prior')
+    p02 = arcpy.Parameter(name='in_include_prior',
+                          datatype='GPBoolean')
     p02.value = False
     params.append(p02)
 
-    p03 = arcpy.Parameter(name='in_roi_feat')
+    p03 = arcpy.Parameter(name='in_roi_feat',
+                          datatype='GPFeatureLayer')
     p03.value = os.path.join(in_folder, 'rois.shp')
     params.append(p03)
 
-    p04 = arcpy.Parameter(name='in_variables')
-    p04.value = 'NDVI;NDREI;NGRDI;OSAVI;Mean;Minimum;Maximum;StanDev;Range;CHM'
+    p04 = arcpy.Parameter(name='in_variables',
+                          datatype='GPString')
+    p04.value = 'NDVI;NDREI;NGRDI;RGBVI;OSAVI;StanDev;Entropy;CHM'
     params.append(p04)
 
     try:
@@ -301,11 +325,13 @@ def test_generatefractions(in_folder, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_project_file')
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
     p00.value = os.path.join(project_folder, 'meta.json')
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_capture_datetime')
+    p01 = arcpy.Parameter(name='in_capture_datetime',
+                          datatype='GPString')
     p01.value = '2022-02-02 10:30:15'
     params.append(p01)
 
@@ -323,17 +349,35 @@ def test_generatetrend(in_folder, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_project_file')
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
     p00.value = os.path.join(project_folder, 'meta.json')
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_capture_datetime')
+    p01 = arcpy.Parameter(name='in_capture_datetime',
+                          datatype='GPString')
     p01.value = '2022-02-02 10:30:15'
     params.append(p01)
 
-    p02 = arcpy.Parameter(name='in_rehab_or_capture_month')
+    p02 = arcpy.Parameter(name='in_rehab_or_capture_month',
+                          datatype='GPString')
     p02.value = 'Month of Rehabilitation'
     params.append(p02)
+
+    p03 = arcpy.Parameter(name='in_manual_year',
+                          datatype='GPLong')
+    p03.value = 2018
+    params.append(p03)
+
+    p04 = arcpy.Parameter(name='in_manual_month',
+                          datatype='GPLong')
+    p04.value = 6
+    params.append(p04)
+
+    p05 = arcpy.Parameter(name='in_export_raw_fractions',
+                          datatype='GPBoolean')
+    p05.value = True
+    params.append(p05)
 
     try:
         # import geoprocessor
@@ -349,17 +393,30 @@ def test_detectuavchange(in_folder, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_project_file')
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
     p00.value = os.path.join(project_folder, 'meta.json')
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_uav_from_date')
+    p01 = arcpy.Parameter(name='in_uav_from_date',
+                          datatype='GPString')
     p01.value = '2022-02-02 10:30:15'
     params.append(p01)
 
-    p01 = arcpy.Parameter(name='in_uav_to_date')
-    p01.value = '2023-02-02 10:30:15'
-    params.append(p01)
+    p02 = arcpy.Parameter(name='in_uav_to_date',
+                          datatype='GPString')
+    p02.value = '2023-02-02 10:30:15'
+    params.append(p02)
+
+    p03 = arcpy.Parameter(name='in_use_majority_filter',
+                          datatype='GPBoolean')
+    p03.value = True
+    params.append(p03)
+
+    p04 = arcpy.Parameter(name='in_use_shrink_filter',
+                          datatype='GPBoolean')
+    p04.value = False
+    params.append(p04)
 
     try:
         # import geoprocessor
@@ -375,30 +432,79 @@ def test_detectfractionchange(in_folder, project_folder):
     # init params
     params = []
 
-    p00 = arcpy.Parameter(name='in_project_file')
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
     p00.value = os.path.join(project_folder, 'meta.json')
     params.append(p00)
 
-    p01 = arcpy.Parameter(name='in_capture_datetime')
+    p01 = arcpy.Parameter(name='in_capture_datetime',
+                          datatype='GPString')
     p01.value = '2022-02-02 10:30:15'
     params.append(p01)
 
-    p02 = arcpy.Parameter(name='in_s2_from_year')
-    p02.value = 2017
+    p02 = arcpy.Parameter(name='in_from_year',
+                          datatype='GPString')
+    p02.value = 'Manual'
     params.append(p02)
 
-    p03 = arcpy.Parameter(name='in_s2_to_year')
-    p03.value = 2023
+    p03 = arcpy.Parameter(name='in_manual_from_year',
+                          datatype='GPLong')
+    p03.value = 2018
     params.append(p03)
 
-    p04 = arcpy.Parameter(name='in_s2_month')
-    p04.value = 2
+    p04 = arcpy.Parameter(name='in_to_year',
+                          datatype='GPString')
+    p04.value = 'Current Year'
     params.append(p04)
+
+    p05 = arcpy.Parameter(name='in_manual_to_year',
+                          datatype='GPLong')
+    p05.value = 2023
+    params.append(p05)
+
+    p06 = arcpy.Parameter(name='in_month',
+                          datatype='GPString')
+    p06.value = 'Month of Rehabilitation'
+    params.append(p06)
+
+    p07 = arcpy.Parameter(name='in_manual_month',
+                          datatype='GPLong')
+    p07.value = 6
+    params.append(p07)
+
+    p08 = arcpy.Parameter(name='in_z',
+                          datatype='GPLong')
+    p08.value = 2
+    params.append(p08)
 
     try:
         # import geoprocessor
         from geoprocessors import detectfracchange
         detectfracchange.execute(params)
+
+    except Exception as e:
+        raise e
+
+
+def test_generatendvi(in_folder, project_folder):
+
+    # init params
+    params = []
+
+    p00 = arcpy.Parameter(name='in_project_file',
+                          datatype='DEFile')
+    p00.value = os.path.join(project_folder, 'meta.json')
+    params.append(p00)
+
+    p01 = arcpy.Parameter(name='in_freq',
+                          datatype='GPString')
+    p01.value = 'Quarterly'
+    params.append(p01)
+
+    try:
+        # import geoprocessor
+        from geoprocessors import generatendvi
+        generatendvi.execute(params)
 
     except Exception as e:
         raise e

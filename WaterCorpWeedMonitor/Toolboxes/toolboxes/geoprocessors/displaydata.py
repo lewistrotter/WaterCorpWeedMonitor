@@ -313,20 +313,23 @@ def execute(
                     tif = file
                     break
 
-            # create uav classified raster path to visualise folder
-            in_tif = os.path.join(change_folder, tif)
-            out_tif = os.path.join(visualise_folder, tif)
+            if tif is not None:
+                # create uav classified raster path to visualise folder
+                in_tif = os.path.join(change_folder, tif)
+                out_tif = os.path.join(visualise_folder, tif)
 
-            # delete previously created visual raster and re-save
-            shared.delete_visual_rasters(rasters=[out_tif])
+                # delete previously created visual raster and re-save
+                shared.delete_visual_rasters(rasters=[out_tif])
 
-            # copy raster over to visualise folder
-            arcpy.management.CopyRaster(in_raster=in_tif,
-                                        out_rasterdataset=out_tif)
+                # copy raster over to visualise folder
+                arcpy.management.CopyRaster(in_raster=in_tif,
+                                            out_rasterdataset=out_tif)
 
-            # visualise it on active map
-            shared.add_raster_to_map(in_ras=out_tif)
-            shared.apply_uav_change_symbology(in_ras=out_tif)
+                # visualise it on active map
+                shared.add_raster_to_map(in_ras=out_tif)
+                shared.apply_uav_change_symbology(in_ras=out_tif)
+            else:
+                arcpy.AddWarning('Could not find UAV Change raster.')
 
         except Exception as e:
             arcpy.AddWarning('Could not visualise UAV Change raster. See messages.')

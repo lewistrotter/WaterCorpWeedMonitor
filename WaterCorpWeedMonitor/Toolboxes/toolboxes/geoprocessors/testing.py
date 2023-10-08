@@ -6,10 +6,11 @@ def execute(
     # region IMPORTS
 
     import os
+    import warnings
     import shutil
     import arcpy
 
-    from scripts import tests, web, shared
+    from scripts import tests
 
     # set data overwrites and mapping
     arcpy.env.overwriteOutput = True
@@ -18,13 +19,21 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region WARNINGS
+
+    # disable warnings
+    warnings.filterwarnings('ignore')
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    #in_folder = parameters[0].valueAsText
+    in_folder = parameters[0].valueAsText
 
     # inputs for testing only
-    in_folder = r'D:\Work\Curtin\Water Corp Project - General\Testing\Test data'
+    #in_folder = r'D:\Work\Curtin\Water Corp Project - General\Testing\Test data'
 
     # endregion
 
@@ -243,5 +252,20 @@ def execute(
 
     # endregion
 
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region RUN GENERATE NDVI TOOL
+
+    arcpy.SetProgressor('default', 'Checking generate NDVI tool...')
+
+    try:
+        tests.test_generatendvi(in_folder, project_folder)
+        arcpy.AddMessage('Generate NDVI tool passed test.')
+
+    except Exception as e:
+        arcpy.AddError('Generate NDVI tool failed test. See messages.')
+        arcpy.AddMessage(str(e))
+
+    # endregion
+
 # testing
-execute(None)
+#execute(None)
