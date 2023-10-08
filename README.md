@@ -14,7 +14,7 @@ We are currently in the process of writing a peer-reviewed journal article outli
 - A reliable internet connection.
 
 ## Installation
-1. Go to the Releases section on the right panel (or [here](https://www.github.com/WaterCorpWeedMonitor/releases))
+1. Go to the Releases section on the right panel (or [here](https://github.com/lewistrotter/WaterCorpWeedMonitor/releases))
 2. Download the latest version of the WaterCorpWeedMonitor.esriAddinX.
 3. Shut down ArcGIS Pro.
 4. Double click the downloaded WaterCorpWeedMonitor.esriAddinX and install it.
