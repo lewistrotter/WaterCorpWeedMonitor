@@ -13,6 +13,7 @@ using ArcGIS.Desktop.Layouts;
 using ArcGIS.Desktop.Mapping;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -23,6 +24,18 @@ namespace WaterCorpWeedMonitor
     {
         protected override void OnClick()
         {
+            try
+            {
+                // open system browser to github page
+                string url = "https://github.com/lewistrotter/WCMonitor";
+                var process = new ProcessStartInfo(url) { UseShellExecute = true };
+                System.Diagnostics.Process.Start(process);
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show("Could not reach GitHub page.");
+                System.Diagnostics.Debug.WriteLine(e.Message);
+            }
         }
     }
 }
