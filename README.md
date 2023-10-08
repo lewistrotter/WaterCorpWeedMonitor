@@ -15,11 +15,11 @@ We are currently in the process of writing a peer-reviewed journal article outli
 
 ## Installation
 1. Go to the Releases section on the right panel (or [here](https://github.com/lewistrotter/WaterCorpWeedMonitor/releases))
-2. Download the latest version of the WaterCorpWeedMonitor.esriAddinX.
+2. Download the WaterCorpWeedMonitor.esriAddinX file for latest plug-in version.
 3. Shut down ArcGIS Pro.
 4. Double click the downloaded WaterCorpWeedMonitor.esriAddinX and install it.
-5. Run ArcGIS Pro.
+5. Run ArcGIS Pro. The plug-in is now installed.
 
 ## Tutorial
-We have provided a tutorial document to walk users through the plug-in using a subset of the City Beach rehabilitation site. 
+A tutorial document is provided to walk users through the plug-in. A subset of the City Beach rehabilitation site UAV imagery.
 TODO.
