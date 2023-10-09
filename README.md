@@ -19,6 +19,7 @@ We are currently in the process of writing a peer-reviewed journal article outli
 3. Shut down ArcGIS Pro.
 4. Double click the downloaded WaterCorpWeedMonitor.esriAddinX and install it.
 5. Run ArcGIS Pro. The plug-in is now installed.
+6. Open a new/existing project and open the new WCMonitor tab on the top menu to get started.
 
 ## Tutorial
 A tutorial document is provided to walk users through the plug-in. A subset of the City Beach rehabilitation site UAV imagery.
