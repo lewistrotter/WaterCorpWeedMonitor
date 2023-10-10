@@ -338,6 +338,74 @@ def apply_frac_change_symbology(
     return
 
 
+def validate_ncs(
+        nc_list: list
+) -> list:
+    """
+
+    :param nc_list:
+    :return:
+    """
+
+    # set up required dims
+    req_dims = ['time', 'y', 'x']
+
+    # set up required bands
+    req_bands = [
+        'nbart_blue',
+        'nbart_green',
+        'nbart_red',
+        'nbart_red_edge_1',
+        'nbart_red_edge_2',
+        'nbart_red_edge_3',
+        'nbart_nir_1',
+        'nbart_nir_2',
+        'nbart_swir_2',
+        'nbart_swir_3'
+    ]
+
+    # set up required attrs
+    req_attrs = [
+        'crs',
+        'grid_mapping'
+    ]
+
+    # iter each dirty nc...
+    clean_nc_list = []
+    for nc in nc_list:
+        try:
+            # read xr dataset
+            ds = xr.open_dataset(nc)
+
+            # check if required dims exist
+            for req_dim in req_dims:
+                if req_dim not in list(ds.dims):
+                    raise ValueError('Missing some dimensions.')
+
+            # check if required bands exist
+            for req_band in req_bands:
+                if req_band not in list(ds.data_vars):
+                    raise ValueError('Missing some bands.')
+
+            # check if required attrs exist
+            for req_attr in req_attrs:
+                if req_attr not in list(ds.attrs):
+                    raise ValueError('Missing some attributes.')
+
+            # we made it, so append to clean list
+            clean_nc_list.append(nc)
+
+        except Exception as e:
+            arcpy.AddMessage(f'Found broken NetCDF with error: {e}')
+            pass
+
+    # check if we have something
+    if len(clean_nc_list) == 0:
+        raise ValueError('No valid NetCDFs could be downloaded.')
+
+    return clean_nc_list
+
+
 def concat_netcdf_files(
         nc_files: list
 ) -> xr.Dataset:

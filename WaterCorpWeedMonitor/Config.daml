@@ -32,6 +32,7 @@
           <button refID="WaterCorpWeedMonitor_ClassifyUAVCapture" size="large" />
         </group>
         <group id="WaterCorpWeedMonitor_Group3" caption="Trends" appearsOnAddInTab="false">
+		  <button refID="WaterCorpWeedMonitor_CalibrateSatellite" size="large" />
           <button refID="WaterCorpWeedMonitor_GenerateFractions" size="large" />
           <button refID="WaterCorpWeedMonitor_GenerateTrend" size="large" />
         </group>
@@ -47,7 +48,7 @@
         </group>
         <group id="WaterCorpWeedMonitor_Group7" caption="Other" appearsOnAddInTab="false">
           <button refID="WaterCorpWeedMonitor_Testing" size="large" />
-		  <button refID="WaterCorpWeedMonitor_Help" size="large" />
+          <button refID="WaterCorpWeedMonitor_Help" size="large" />
         </group>
       </groups>
       <controls>
@@ -61,7 +62,10 @@
         <button id="WaterCorpWeedMonitor_ClassifyUAVCapture" caption="Classify UAV Captures" className="ClassifyUAVCapture" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageBandCombination32.png">
           <tooltip heading="Classify UAV capture">Classify new or existing UAV captures into Native, Weed and Other classes via polygon training areas.<disabledText /></tooltip>
         </button>
-        <button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractions" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
+		<button id="WaterCorpWeedMonitor_CalibrateSatellite" caption="Calibrate Satellite" className="CalibrateSatellite" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/EditingMoveTool32.png">
+		  <tooltip heading="Calibrate Satellite">Calibrate Sentinel 2 extent alignment via shifting.<disabledText /></tooltip>
+		</button>
+		<button id="WaterCorpWeedMonitor_GenerateFractions" caption="Generate Fractions" className="GenerateFractions" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/LayerGroup32.png">
           <tooltip heading="Generate Fraction Layers">Generate Native, Weed and Other fraction timeseries layers via classified UAV capture and satellite data.<disabledText /></tooltip>
         </button>
         <button id="WaterCorpWeedMonitor_GenerateTrend" caption="Generate Trends" className="GenerateTrend" loadOnClick="true" smallImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/GenericButtonBlue16.png" largeImage="pack://application:,,,/ArcGIS.Desktop.Resources;component/Images/RasterImageDisplayStretchType32.png">

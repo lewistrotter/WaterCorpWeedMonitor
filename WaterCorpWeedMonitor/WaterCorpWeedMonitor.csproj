@@ -9,6 +9,7 @@
     <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <None Remove="Toolboxes\toolboxes\geoprocessors\calibratesatellite.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\classifyuavcapture.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\createnewsite.py" />
     <None Remove="Toolboxes\toolboxes\geoprocessors\detectfracchange.py" />
@@ -27,16 +28,20 @@
     <None Remove="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <None Remove="Toolboxes\toolboxes\scripts\uav_fractions.py" />
     <None Remove="Toolboxes\toolboxes\scripts\web.py" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.CalibrateSatellite.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.ClassifyUAVCapture.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.CreateNewSite.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.DetectChange.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.DetectFractionChange.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.DetectUAVChange.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.DisplayData.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.GenerateFractions.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.GenerateNDVI.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.GenerateTrend.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.IngestNewUAVCapture.pyt.xml" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.pyt" />
     <None Remove="Toolboxes\toolboxes\WCMonitor.pyt.xml" />
+    <None Remove="Toolboxes\toolboxes\WCMonitor.Testing.pyt.xml" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Config.daml" />
@@ -44,6 +49,7 @@
     <Content Include="Images\AddInDesktop32.png" />
     <Content Include="DarkImages\AddInDesktop16.png" />
     <Content Include="DarkImages\AddInDesktop32.png" />
+    <Content Include="Toolboxes\toolboxes\geoprocessors\calibratesatellite.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\classifyuavcapture.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\createnewsite.py" />
     <Content Include="Toolboxes\toolboxes\geoprocessors\detectfracchange.py" />
@@ -62,16 +68,20 @@
     <Content Include="Toolboxes\toolboxes\scripts\uav_classify.py" />
     <Content Include="Toolboxes\toolboxes\scripts\uav_fractions.py" />
     <Content Include="Toolboxes\toolboxes\scripts\web.py" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.CalibrateSatellite.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.ClassifyUAVCapture.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.CreateNewSite.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.DetectChange.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.DetectFractionChange.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.DetectUAVChange.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.DisplayData.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.GenerateFractions.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.GenerateNDVI.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.GenerateTrend.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.IngestNewUAVCapture.pyt.xml" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.pyt" />
     <Content Include="Toolboxes\toolboxes\WCMonitor.pyt.xml" />
+    <Content Include="Toolboxes\toolboxes\WCMonitor.Testing.pyt.xml" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="ArcGIS.Desktop.Framework">

@@ -1,13 +1,52 @@
 # -*- coding: utf-8 -*-
 r""""""
-__all__ = ['ClassifyUAVCapture', 'CreateNewSite', 'DetectFractionChange',
-           'DetectUAVChange', 'DisplayData', 'GenerateFractions',
-           'GenerateNDVI', 'GenerateTrend', 'IngestNewUAVCapture', 'Testing']
+__all__ = ['CalibrateSatellite', 'ClassifyUAVCapture', 'CreateNewSite',
+           'DetectFractionChange', 'DetectUAVChange', 'DisplayData',
+           'GenerateFractions', 'GenerateNDVI', 'GenerateTrend',
+           'IngestNewUAVCapture', 'Testing']
 __alias__ = 'WCMonitor'
 from arcpy.geoprocessing._base import gptooldoc, gp, gp_fixargs
 from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
 
 # Tools
+@gptooldoc('CalibrateSatellite_WCMonitor', None)
+def CalibrateSatellite(in_project_file=None, in_operation=None, in_x_shift=None, in_y_shift=None):
+    """CalibrateSatellite_WCMonitor(in_project_file, in_operation, in_x_shift, in_y_shift)
+
+        Sentinel 2 imagery obtained from Digital Earth Australia may
+        spatially "shift" depending on the bounding box coordinates used to
+        obtain the imagery. This could lead to satellite data used in fraction
+        analysis to be slightly unaligned from UAV images. This tool can be
+        used to calibrate Sentinel 2 data by shifting it in x and y directions
+        prior to its use in analyses. Once the satellite is calibrated, these
+        shift parameters will be used in all following analyses for the
+        selected site. Note: once fraction images have been generated, this
+        tool will no longer work - it must be used prior to fractions being
+        generated for a site.
+
+     INPUTS:
+      in_project_file (File):
+          Every site has a unique meta.json file in its project folder. Find
+          and select this file to set the current site you want to calibrate.
+      in_operation (String):
+          Select whether to shift Sentinel 2 data or reset the shift values
+          from prior runs.
+      in_x_shift (Double):
+          Shift the Sentinel 2 image along the x dimension (i.e., west to
+          east). Use a negative value to shift west and a positive value to
+          shift east. It is recommended no more than 5 metres is used.
+      in_y_shift (Double):
+          Shift the Sentinel 2 image along the y dimension (i.e., north to
+          south). Use a negative value to shift south and a positive value to
+          shift north. It is recommended no more than 5 metres is used."""
+    from arcpy.geoprocessing._base import gp, gp_fixargs
+    from arcpy.arcobjects.arcobjectconversion import convertArcObjectToPythonObject
+    try:
+        retval = convertArcObjectToPythonObject(gp.CalibrateSatellite_WCMonitor(*gp_fixargs((in_project_file, in_operation, in_x_shift, in_y_shift), True)))
+        return retval
+    except Exception as e:
+        raise e
+
 @gptooldoc('ClassifyUAVCapture_WCMonitor', None)
 def ClassifyUAVCapture(in_project_file=None, in_capture_datetime=None, in_include_prior=None, in_roi_feat=None, in_variables=None):
     """ClassifyUAVCapture_WCMonitor(in_project_file, in_capture_datetime, in_include_prior, in_roi_feat, in_variables;in_variables...)

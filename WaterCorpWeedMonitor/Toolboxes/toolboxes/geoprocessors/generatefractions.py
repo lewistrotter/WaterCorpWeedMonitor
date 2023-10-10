@@ -126,8 +126,8 @@ def execute(
         arcpy.AddMessage(str(e))
         return
 
-    # check if any captures exist (will be >= 4)
-    if len(meta) < 4:
+    # check if any captures exist (will be >= 6)
+    if len(meta) < 6:
         arcpy.AddError('Project has no UAV capture data.')
         return
 
@@ -145,7 +145,7 @@ def execute(
     arcpy.SetProgressor('default', 'Extracting selected UAV capture metadata...')
 
     # exclude top-level metadata items
-    exclude_keys = ['project_name', 'date_created', 'date_rehab']
+    exclude_keys = ['project_name', 'date_created', 'date_rehab', 'sat_shift_x', 'sat_shift_y']
 
     # extract selected metadata item based on capture date
     meta_item = None
@@ -271,6 +271,9 @@ def execute(
         return
 
     try:
+        # validate ncs to ensure all conform to expected
+        nc_files = shared.validate_ncs(nc_list=nc_files)
+
         # read all netcdfs into single dataset
         ds = shared.concat_netcdf_files(nc_files=nc_files)
 
@@ -306,6 +309,10 @@ def execute(
         ds = ds.interpolate_na(dim='time',
                                method='linear',
                                fill_value='extrapolate')
+
+        # shift x, y based on user calibration
+        ds['x'] = ds['x'] + meta['sat_shift_x']
+        ds['y'] = ds['y'] + meta['sat_shift_y']
 
         # append attributes back on
         ds.attrs = ds_attrs

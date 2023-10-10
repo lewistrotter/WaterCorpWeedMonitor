@@ -139,8 +139,8 @@ def execute(
         arcpy.AddMessage(str(e))
         return
 
-    # check if any captures exist (will be >= 4), else error
-    if len(meta) < 4:
+    # check if any captures exist (will be >= 6), else error
+    if len(meta) < 6:
         arcpy.AddError('Project has no UAV capture data.')
         return
 
@@ -209,8 +209,8 @@ def execute(
     # get top-level captures folder
     captures_folder = os.path.join(in_project_folder, 'uav_captures')
 
-    # get baseline capture (element 3 always first capture added)
-    base_capture_folder = list(meta.keys())[3]
+    # get baseline capture (element 5 always first capture added)
+    base_capture_folder = list(meta.keys())[5]
 
     # prepend project folder on to base capture folder
     base_capture_folder = os.path.join(captures_folder, base_capture_folder)

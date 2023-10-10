@@ -331,6 +331,8 @@ def execute(
         'project_name': meta_project_name,
         'date_created': meta_date_created,
         'date_rehab': meta_date_rehab,
+        'sat_shift_x': 0.0,
+        'sat_shift_y': 0.0,
         new_flight_date: data
     }
 

@@ -104,6 +104,28 @@ def execute(
     # endregion
 
     # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+    # region READ AND CHECK METADATA
+
+    arcpy.SetProgressor('default', 'Reading and checking metadata...')
+
+    try:
+        # read project json file
+        with open(in_project_file, 'r') as fp:
+            meta = json.load(fp)
+
+    except Exception as e:
+        arcpy.AddError('Could not read metadata. See messages.')
+        arcpy.AddMessage(str(e))
+        return
+
+    # check if any captures exist (will be >= 6)
+    if len(meta) < 6:
+        arcpy.AddError('Project has no UAV capture data.')
+        return
+
+    # endregion
+
+    # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
     # region READ AND CHECK SENTINEL 2 NETCDFS
 
     arcpy.SetProgressor('default', 'Reading and checking Sentinel 2 NetCDFs...')
@@ -130,6 +152,9 @@ def execute(
         return
 
     try:
+        # validate ncs to ensure all conform to expected
+        ncs = shared.validate_ncs(nc_list=ncs)
+
         # read and concatnate all netcdfs into one
         ds = shared.concat_netcdf_files(ncs)
 
@@ -196,6 +221,10 @@ def execute(
 
     # fill in nan values
     ds = ds.interpolate_na(dim='time')
+
+    # shift x, y based on user calibration
+    ds['x'] = ds['x'] + meta['sat_shift_x']
+    ds['y'] = ds['y'] + meta['sat_shift_y']
 
     # endregion
 

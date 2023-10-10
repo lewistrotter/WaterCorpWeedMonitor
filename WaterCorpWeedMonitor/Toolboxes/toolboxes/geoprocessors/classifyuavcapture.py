@@ -126,8 +126,8 @@ def execute(
         arcpy.AddMessage(str(e))
         return
 
-    # check if any captures exist (will be >= 4), else error
-    if len(meta) < 4:
+    # check if any captures exist (will be >= 6), else error
+    if len(meta) < 6:
         arcpy.AddError('Project has no UAV capture data.')
         return
 
@@ -139,7 +139,7 @@ def execute(
     arcpy.SetProgressor('default', 'Extracting selected UAV capture metadata...')
 
     # exclude top-level metadata items
-    exclude_keys = ['project_name', 'date_created', 'date_rehab']
+    exclude_keys = ['project_name', 'date_created', 'date_rehab', 'sat_shift_x', 'sat_shift_y']
 
     # extract selected metadata item based on capture date
     meta_item = None
