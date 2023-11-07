@@ -28,12 +28,12 @@ def execute(
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    in_project_file = parameters[0].valueAsText
-    in_flight_datetime = parameters[1].value
+    #in_project_file = parameters[0].valueAsText
+    #in_flight_datetime = parameters[1].value
 
     # inputs for testing only
-    #in_project_file = r'C:\Users\Lewis\Desktop\testing\lancelin\meta.json'
-    #in_flight_datetime = '2023-09-07 11:00:00'
+    in_project_file = r'C:\Users\Lewis\Desktop\testing\citybeach\meta.json'
+    in_flight_datetime = '2023-02-02 11:00:00'
 
     # endregion
 
@@ -309,6 +309,9 @@ def execute(
         ds = ds.interpolate_na(dim='time',
                                method='linear',
                                fill_value='extrapolate')
+
+        # standardise via pseudo invariants
+        ds = shared.pif_standardise(ds=ds)
 
         # shift x, y based on user calibration
         ds['x'] = ds['x'] + meta['sat_shift_x']
@@ -646,4 +649,4 @@ def execute(
     return
 
 # testing
-#execute(None)
+execute(None)

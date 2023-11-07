@@ -598,6 +598,85 @@ def multi_band_xr_to_raster(
     return out_ras
 
 
+def pif_standardise(
+        ds: xr.Dataset
+) -> xr.Dataset:
+
+    # need data array, return if not
+    if not isinstance(ds, xr.DataArray):
+        return ds
+
+    try:
+        # obtain nodata mask set rest to nan
+        ds_mask = ds == -999
+        ds = ds.where(ds != -999)
+
+        # extract original bands for later removal
+        raw_bands = list(ds.data_vars)
+
+        # get first datetime
+        dt = ds['time'].isel(time=0).to_numpy()
+
+    except Exception as e:
+        raise e
+
+    try:
+        # extract reference time slice as new xr
+        ds_r = ds.sel(time=dt)
+
+        # remove reference time slice from existing xr
+        ds_t = ds.drop_sel(time=dt)
+
+        # calc pixel-wise similarity based on pearson corr
+        da_cor = xr.corr(da_a=ds_r.to_array(),
+                         da_b=ds_t.to_array(),
+                         dim='variable')
+
+        # calc pseudo-ivts via thresholds per target date
+        da_pis = da_cor > da_cor.quantile(q=0.95)
+
+        das = []
+        for dt in ds_t['time'].to_numpy():
+
+            # get pis mask for current datetime
+            da_msk = da_pis.sel(time=[dt]).squeeze(drop=True)
+            arr_m = da_msk.to_numpy()
+
+            # select current target slice
+            da_t = ds_t.sel(time=dt)
+
+            # iter each band...
+            for var in ds_r:
+                # unpack reference arr
+                arr_r = ds_r[var].where(~ds_r[var].isnull() & arr_m).to_numpy().flatten()
+                arr_r = arr_r[~np.isnan(arr_r)]
+
+                # do same for current target
+                arr_t = da_t[var].where(~da_t[var].isnull() & arr_m).to_numpy().flatten()
+                arr_t = arr_t[~np.isnan(arr_t)]
+
+                # fit linear
+                fit = np.polyfit(x=arr_t, y=arr_r, deg=1)
+
+                # project onto  target band
+                prd = np.polyval(fit, da_t[var])
+                da_t[var].data = prd
+
+            # update target values
+            ds_t.loc[{'time': dt}] = da_t
+
+    except Exception as e:
+        raise e
+
+    # add reference back on
+    ds_out = xr.concat([ds_r, ds_t], 'time').sortby('time')
+
+    return ds_out
+
+
+
+
+
 def netcdf_to_crf(
         in_nc: str,
         out_crf: str

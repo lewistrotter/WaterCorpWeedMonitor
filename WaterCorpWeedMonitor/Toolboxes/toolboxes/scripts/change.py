@@ -405,14 +405,6 @@ def get_mean_frac_raster(
     return out_ras
 
 
-
-
-
-
-
-
-
-
 def validate_frac_dates(
         dates: list,
         from_year: int,

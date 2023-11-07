@@ -98,7 +98,7 @@ def execute(
 
     arcpy.SetProgressor('default', 'Preparing workspace...')
 
-    # create temp folder if does not already exist
+    # create temp folder if it does not already exist
     tmp = os.path.join(in_project_folder, 'tmp')
     if not os.path.exists(tmp):
         os.mkdir(tmp)
