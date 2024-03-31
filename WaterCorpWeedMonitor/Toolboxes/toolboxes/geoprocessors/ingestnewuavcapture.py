@@ -38,15 +38,15 @@ def execute(
     in_dtm_band = parameters[8].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing2\meta.json'
     # in_flight_datetime = datetime.datetime.now()
-    # in_blue_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_blue.tif'
-    # in_green_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_green.tif'
-    # in_red_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_red.tif'
-    # in_redge_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_redge.tif'
-    # in_nir_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_nir.tif'
-    # in_dsm_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_dsm.tif'
-    # in_dtm_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_dtm.tif'
+    # in_blue_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_blue.tif'
+    # in_green_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_green.tif'
+    # in_red_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_red.tif'
+    # in_redge_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_redge.tif'
+    # in_nir_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_nir.tif'
+    # in_dsm_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_dsm.tif'
+    # in_dtm_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_dtm.tif'
 
     # endregion
 
@@ -238,11 +238,15 @@ def execute(
         arcpy.management.CompositeBands(in_rasters=base_bands,
                                         out_raster='tmp_cmp.tif')
 
-        # register new raster to baseline raster
-        arcpy.management.RegisterRaster(in_raster='tmp_rsp.tif',
-                                        register_mode='REGISTER',
-                                        reference_raster='tmp_cmp.tif',
-                                        transformation_type='POLYORDER0')
+        # FIXME: currently fails in 3.2, setting logic for now
+        if arcpy.GetInstallInfo()['Version'] != '3.2':
+            # register new raster to baseline raster
+            arcpy.management.RegisterRaster(in_raster='tmp_rsp.tif',
+                                            register_mode='REGISTER',
+                                            reference_raster='tmp_cmp.tif',
+                                            transformation_type='POLYORDER0')
+        else:
+            arcpy.AddWarning('Register not supported in Pro 3.2 due to bugs.')
 
     except Exception as e:
         arcpy.AddError('Could not register new capture data to baseline. See messages.')
@@ -413,4 +417,4 @@ def execute(
     return
 
 # testing
-#execute(None)
+# execute(None)

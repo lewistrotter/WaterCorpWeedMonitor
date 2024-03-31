@@ -28,12 +28,12 @@ def execute(
     # region EXTRACT PARAMETERS
 
     # inputs from arcgis pro ui
-    #in_project_file = parameters[0].valueAsText
-    #in_flight_datetime = parameters[1].value
+    # in_project_file = parameters[0].valueAsText
+    # in_flight_datetime = parameters[1].value
 
     # inputs for testing only
     in_project_file = r'C:\Users\Lewis\Desktop\testing\citybeach\meta.json'
-    in_flight_datetime = '2023-02-02 11:00:00'
+    in_flight_datetime = '2024-02-05 11:00:00'
 
     # endregion
 

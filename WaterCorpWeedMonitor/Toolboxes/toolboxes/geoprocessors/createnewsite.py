@@ -40,17 +40,17 @@ def execute(
     in_dtm_band = parameters[10].value
 
     # inputs for testing only
-    # in_out_folder = r'C:\Users\Lewis\Desktop\testing\city beach dev'
-    # in_boundary_feat = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Boundary\CityBeach.shp'
+    # in_out_folder = r'C:\Users\Lewis\Desktop\testing2'
+    # in_boundary_feat = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\studyarea.shp'
     # in_rehab_datetime = datetime.datetime.now()
     # in_flight_datetime = datetime.datetime.now()
-    # in_blue_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_blue.tif'
-    # in_green_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_green.tif'
-    # in_red_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_red.tif'
-    # in_redge_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_redge.tif'
-    # in_nir_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_ref_nir.tif'
-    # in_dsm_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_dsm.tif'
-    # in_dtm_band = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Final Data\ms\ms_dtm.tif'
+    # in_blue_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_blue.tif'
+    # in_green_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_green.tif'
+    # in_red_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_red.tif'
+    # in_redge_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_redge.tif'
+    # in_nir_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_ref_nir.tif'
+    # in_dsm_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_dsm.tif'
+    # in_dtm_band = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\ms_dtm.tif'
 
     # endregion
 
@@ -414,4 +414,4 @@ def execute(
     return
 
 # testing
-#execute(None)
+# execute(None)

@@ -346,6 +346,17 @@ def gwr(
         raise ValueError('Could not read accuracy messages.')
         pass
 
+    # try:
+    #     # testing ols output
+    #     arcpy.stats.GeneralizedLinearRegression(in_features=in_rois,
+    #                                             dependent_variable=classvalue,
+    #                                             model_type='CONTINUOUS',
+    #                                             explanatory_variables=data_vars,
+    #                                             output_features=out_prediction_shp)
+    #
+    # except Exception as e:
+    #     raise e
+
     return out_prediction_shp
 
 

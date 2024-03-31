@@ -35,10 +35,10 @@ def execute(
     in_variables = parameters[4].valueAsText
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\city beach dev\meta.json'
-    # in_flight_datetime = '2023-07-06 22:05:46'
+    # in_project_file = r'C:\Users\Lewis\Desktop\testing2\meta.json'
+    # in_flight_datetime = '2023-11-08 16:36:18'
     # #in_include_prior = False  # this parameter is only for ui control
-    # in_roi_feat = r'D:\Work\Curtin\Water Corp Project - General\Processed\City Beach\Classification\Final\train_test_rois_smaller_bc_grp_nvwvo_wgs_z50s.shp'
+    # in_roi_feat = r'D:\Work\Curtin\Water Corp Project - General\Testing\Tutorial Data\city_beach\rois.shp'
     # in_variables = 'NDVI;NDREI;NGRDI;OSAVI;Mean;Minimum;Maximum;StanDev;Range;Skew;Kurtosis;Entropy;Variance;CHM'
 
     # endregion
@@ -595,8 +595,8 @@ def execute(
 
         # store average producer and user error
         df_result = pd.DataFrame({
-            'MeanProdError': avg_p_acc.round(3),
-            'MeanUserError': avg_u_acc.round(3)
+            'MeanProdAcc': avg_p_acc.round(3),
+            'MeanUserAcc': avg_u_acc.round(3)
         })
 
         # update index labels to class codes

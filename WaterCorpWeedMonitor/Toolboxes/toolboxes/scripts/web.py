@@ -60,8 +60,8 @@ class Download:
         self.out_res = out_res
         self.out_path = out_path
         self.out_extension = out_extension
-        self.__oa_mask_dataset = None
-        self.__band_dataset = None
+        self._oa_mask_dataset = None
+        self._band_dataset = None
 
     def __repr__(self):
         return '{}({!r})'.format(self.__class__.__name__, self.__dict__)
@@ -108,6 +108,28 @@ class Download:
 
         return url
 
+    def build_mask_tif_filepath(
+            self
+    ) -> str:
+
+        # TODO: meta
+
+        fn = f'{self.date}_{self.collection}_mask.tif'
+        fp = os.path.join(self.out_path, fn)
+
+        return fp
+
+    def build_band_tif_filepath(
+            self
+    ) -> str:
+
+        # TODO: meta
+
+        fn = f'{self.date}_{self.collection}_band.tif'
+        fp = os.path.join(self.out_path, fn)
+
+        return fp
+
     def build_output_filepath(self):
         """
         Creates an output path for downloaded file.
@@ -128,8 +150,13 @@ class Download:
 
         try:
             url = self.build_oa_mask_wcs_url()
-            self.__oa_mask_dataset = gdal.Open(url, gdal.GA_ReadOnly)
+            data = requests.get(url)
 
+            out_fp = self.build_mask_tif_filepath()
+            with open(out_fp, 'wb') as f:
+                f.write(data.content)
+
+            self._oa_mask_dataset = gdal.Open(out_fp, gdal.GA_ReadOnly)
         except Exception as e:
             raise e
 
@@ -142,7 +169,13 @@ class Download:
 
         try:
             url = self.build_band_wcs_url()
-            self.__band_dataset = gdal.Open(url, gdal.GA_Update)
+            data = requests.get(url)
+
+            out_fp = self.build_band_tif_filepath()
+            with open(out_fp, 'wb') as f:
+                f.write(data.content)
+
+            self._band_dataset = gdal.Open(out_fp, gdal.GA_Update)
 
         except Exception as e:
             raise e
@@ -155,8 +188,8 @@ class Download:
         :return: Percent out of bounds or None.
         """
 
-        if self.__oa_mask_dataset is not None:
-            mask_arr = self.__oa_mask_dataset.ReadAsArray()
+        if self._oa_mask_dataset is not None:
+            mask_arr = self._oa_mask_dataset.ReadAsArray()
 
             invalid_size = np.sum(mask_arr == 0)  # assuming 0 is always out of bounds...
             total_size = mask_arr.size
@@ -175,8 +208,8 @@ class Download:
         :return: Percent out of bounds or None.
         """
 
-        if self.__oa_mask_dataset is not None:
-            mask_arr = self.__oa_mask_dataset.ReadAsArray()
+        if self._oa_mask_dataset is not None:
+            mask_arr = self._oa_mask_dataset.ReadAsArray()
 
             invalid_size = np.sum(~np.isin(mask_arr, quality_flags + [0]))  # including 0 as valid
             total_size = mask_arr.size
@@ -197,7 +230,7 @@ class Download:
         :return: True or False boolean.
         """
 
-        if self.__oa_mask_dataset is None:
+        if self._oa_mask_dataset is None:
             return False
 
         pct_out_of_bounds = self.get_percent_out_of_bounds_mask_pixels()
@@ -219,14 +252,14 @@ class Download:
         :return: None.
         """
 
-        mask_arr = self.__oa_mask_dataset.ReadAsArray()
+        mask_arr = self._oa_mask_dataset.ReadAsArray()
         mask_arr = np.isin(mask_arr, quality_flags)  # not including 0 as valid
 
-        band_arr = self.__band_dataset.ReadAsArray()
+        band_arr = self._band_dataset.ReadAsArray()
         band_arr = np.where(band_arr == -999, no_data_value, band_arr)  # set DEA nodata (-999) to user no data
         band_arr = np.where(mask_arr, band_arr, no_data_value)
 
-        self.__band_dataset.WriteArray(band_arr)
+        self._band_dataset.WriteArray(band_arr)
 
     def export_band_dataset_to_netcdf_file(self, nodata_value):
         """
@@ -240,7 +273,7 @@ class Download:
 
         out_filepath = self.build_output_filepath()
         gdal.Translate(out_filepath,
-                       self.__band_dataset,
+                       self._band_dataset,
                        **options)
 
         self.fix_netcdf_metadata()
@@ -273,8 +306,28 @@ class Download:
         :return: None
         """
 
-        self.__oa_mask_dataset = None
-        self.__band_dataset = None
+        self._oa_mask_dataset = None
+        self._band_dataset = None
+
+    def delete_tmp_tifs(
+            self
+    ) -> None:
+        """
+
+        :return:
+        """
+
+        try:
+            mask_fp = self.build_mask_tif_filepath()
+            os.remove(mask_fp)
+        except:
+            pass
+
+        try:
+            band_fp = self.build_band_tif_filepath()
+            os.remove(band_fp)
+        except:
+            pass
 
 
 def build_stac_query_url(
@@ -592,6 +645,7 @@ def validate_and_download(
         message = f'Download {download.date}: error.'
 
     download.close_datasets()
+    download.delete_tmp_tifs()
 
     return message
 
