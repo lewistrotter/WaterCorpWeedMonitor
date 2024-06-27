@@ -35,18 +35,22 @@ def execute(
     in_to_year = parameters[4].valueAsText
     in_manual_to_year = parameters[5].value
     in_month = parameters[6].valueAsText
-    in_manual_month = parameters[7].value
-    in_z = parameters[8].value
+    in_manual_from_month = parameters[7].value
+    in_manual_to_month = parameters[8].value
+    #in_manual_month = parameters[7].value
+    in_z = parameters[9].value
 
     # inputs for testing only
-    # in_project_file = r'C:\Users\Lewis\Desktop\testing\goegrup\meta.json'
-    # in_flight_datetime = '2022-12-15 11:00:00'
-    # in_from_year = 'Manual'  # 'Year of Rehabilitation'  # 'Manual'
-    # in_manual_from_year = 2016
-    # in_to_year = 'Current Year'  # 'Manual'
-    # in_manual_to_year = 2023
-    # in_month = 'Manual'  #'Month of Rehabilitation'  # 'Manual'
-    # in_manual_month = 3 # 6
+    # in_project_file = r'C:\Users\Lewis\Desktop\workshop\latenight\meta.json'
+    # in_flight_datetime = '2023-02-15 22:01:13'
+    # in_from_year = 'Year of Rehabilitation'  # 'Year of Rehabilitation'  # 'Manual'
+    # in_manual_from_year = 2018
+    # in_to_year = 'Manual'  # 'Current Year'
+    # in_manual_to_year = 2018
+    # in_month = 'Manual'  # 'Month of First UAV Capture'  #'Month of Rehabilitation'
+    # in_manual_from_month = 3
+    # in_manual_to_month = 6
+    # #in_manual_month = 6
     # in_z = 2
 
     # endregion
@@ -227,21 +231,29 @@ def execute(
     # set month based on selection
     month = None
     if in_month == 'Month of Rehabilitation':
-        month = rehab_month
+        # month = rehab_month
+        from_month, to_month = rehab_month, rehab_month
     elif in_month == 'Month of First UAV Capture':
-        month = capture_month
+        # month = capture_month
+        from_month, to_month = capture_month, capture_month
     elif in_month == 'Manual':
-        month = in_manual_month
+        # month = in_manual_month
+        from_month = in_manual_from_month
+        to_month = in_manual_to_month
 
     try:
         # validate if dates exist and attempt fix if bad. error if cant
         result = change.validate_frac_dates(dates=valid_frac_dates,
                                             from_year=from_year,
                                             to_year=to_year,
-                                            month=month)
+                                            from_month=from_month,
+                                            to_month=to_month
+                                            #month=month
+                                            )
 
         # unpack clean date values
-        from_year, to_year, month = result
+        from_year, to_year, from_month, to_month = result
+        #from_year, to_year, month = result
 
     except Exception as e:
         arcpy.AddError('Could not obtain dates from fraction NetCDFs. See messages.')
@@ -249,9 +261,9 @@ def execute(
         return
 
     # check "from" and "to" have a year difference
-    if from_year >= to_year:
-        arcpy.AddError('Need at least a year between "from" and "to" images.')
-        return
+    #if from_year >= to_year:
+        #arcpy.AddError('Need at least a year between "from" and "to" images.')
+        #return
 
     # endregion
 
@@ -261,8 +273,15 @@ def execute(
     arcpy.SetProgressor('default', 'Preparing "from" and "to" rasters...')
 
     # build from and to date strings
-    from_date = f'{from_year}-{str(month).zfill(2)}'
-    to_date = f'{to_year}-{str(month).zfill(2)}'
+    from_date = f'{from_year}-{str(from_month).zfill(2)}'
+    to_date = f'{to_year}-{str(to_month).zfill(2)}'
+    #from_date = f'{from_year}-{str(month).zfill(2)}'
+    #to_date = f'{to_year}-{str(month).zfill(2)}'
+
+    # check "from" date less than "to" date
+    if from_date >= to_date:
+        arcpy.AddError('The "to" date must be greater than "from" date.')
+        return
 
     # tell user final dates used
     arcpy.AddMessage(f'Detecting change from {from_date} to {to_date}.')
@@ -513,4 +532,4 @@ def execute(
     return
 
 # testing
-#execute(None)
+# execute(None)

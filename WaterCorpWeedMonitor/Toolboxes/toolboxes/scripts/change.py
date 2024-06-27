@@ -409,8 +409,10 @@ def validate_frac_dates(
         dates: list,
         from_year: int,
         to_year: int,
-        month: int
-) -> tuple[int, int, int]:
+        from_month: int,
+        to_month: int,
+        #month: int
+) -> tuple[int, int, int, int]:
     """
 
     :param dates:
@@ -420,12 +422,15 @@ def validate_frac_dates(
     """
 
     # convert "from" and "to" years and month to string dates
-    from_date = f'{from_year}-{str(month).zfill(2)}'
-    to_date = f'{to_year}-{str(month).zfill(2)}'
+    from_date = f'{from_year}-{str(from_month).zfill(2)}'
+    to_date = f'{to_year}-{str(to_month).zfill(2)}'
+    # from_date = f'{from_year}-{str(month).zfill(2)}'
+    # to_date = f'{to_year}-{str(month).zfill(2)}'
 
     # check if both in dates, all good if so
     if from_date in dates and to_date in dates:
-        return from_year, to_year, month
+        return from_year, to_year, from_month, to_month
+        # return from_year, to_year, month
 
     # error if issue is with "from" date, cant do much
     if from_date not in dates:
@@ -434,16 +439,19 @@ def validate_frac_dates(
     # now try "to" date
     if to_date not in dates:
         # create new date string with roll back year
-        new_to_date = f'{to_year - 1}-{str(month).zfill(2)}'
+        new_to_date = f'{to_year - 1}-{str(to_month).zfill(2)}'
+        # new_to_date = f'{to_year - 1}-{str(month).zfill(2)}'
 
         # roll back a year if missing and warn, else error
         if new_to_date not in dates:
             raise ValueError(f'"To" date {to_date} not in NetCDF. Change "to" year or month.')
         else:
             arcpy.AddWarning(f'"To" date {to_date} was not in NetCDF. Rolled back a year ({to_year - 1}).')
-            return from_year, to_year - 1, month
+            return from_year, to_year - 1, from_month, to_month
+            #return from_year, to_year - 1, month
 
-    return from_year, to_year, month
+    # return from_year, to_year, month
+    return from_year, to_year, from_month, to_month
 
 
 def threshold_via_zscore(

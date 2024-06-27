@@ -1,5 +1,5 @@
 ﻿<ArcGIS defaultAssembly="WaterCorpWeedMonitor.dll" defaultNamespace="WaterCorpWeedMonitor" xmlns="http://schemas.esri.com/DADF/Registry" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://schemas.esri.com/DADF/Registry file:///C:/Program%20Files/ArcGIS/Pro/bin/ArcGIS.Desktop.Framework.xsd">
-  <AddInInfo id="{f2dde29b-64be-4123-a940-bbc1b71916e5}" version="1.01" desktopVersion="3.0.36057">
+  <AddInInfo id="{f2dde29b-64be-4123-a940-bbc1b71916e5}" version="1.02" desktopVersion="3.0.36057">
     <Name>WaterCorpWeedMonitor</Name>
     <Description>WaterCorpWeedMonitor description</Description>
     <Image>Images\AddinDesktop32.png</Image>
